@@ -1,0 +1,69 @@
+:root {
+  /* 背景与表面 */
+  --bg: #0a0a0b;
+  --bg-elevated: #121214;
+  --surface: #17171a;
+  --surface-2: #1d1e1a;
+  --surface-hover: #22231e;
+
+  /* 线条 */
+  --border: rgba(244, 244, 239, 0.08);
+  --border-strong: rgba(244, 244, 239, 0.16);
+
+  /* 文字 */
+  --text: #f4f4ef;
+  --text-secondary: #b0b0a7;
+  --text-muted: #7e7e76;
+  --text-disabled: #5b5b55;
+
+  /* 唯一强调色：橄榄柠檬 */
+  --accent: #c4e552;
+  --accent-hover: #d2f06a;
+  --accent-pressed: #a9c93b;
+  --accent-ink: #15170a;
+  --accent-soft: rgba(196, 229, 82, 0.1);
+  --accent-border: rgba(196, 229, 82, 0.36);
+
+  /* 语义色 */
+  --success: #8fd9a8;
+  --success-soft: rgba(143, 217, 168, 0.1);
+  --warning: #e7c66b;
+  --warning-soft: rgba(231, 198, 107, 0.1);
+  --danger: #ff8a80;
+  --danger-soft: rgba(255, 138, 128, 0.1);
+  --info: #9cb8e8;
+  --info-soft: rgba(156, 184, 232, 0.1);
+
+  /* 字体 */
+  --font-sans: var(--font-inter), "HarmonyOS Sans SC", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 圆角 */
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+
+  /* 阴影与动效 */
+  --shadow-panel: 0 30px 80px -40px rgba(0, 0, 0, 0.9);
+  --shadow-card: 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+}
