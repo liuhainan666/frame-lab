@@ -10,7 +10,8 @@ import {
   minimalCategory,
   minimalTemplate,
   travelCategory,
-  travelTemplate
+  travelTemplate,
+  videoTemplate
 } from "@/test/fixtures/templates";
 import { renderWithProviders } from "@/test/utils";
 
@@ -49,6 +50,9 @@ describe("模板列表页", () => {
     expect(screen.getByText(/2 张素材/)).toBeInTheDocument();
     expect(screen.getByText(/1 张素材/)).toBeInTheDocument();
     expect(screen.getByText("2 个模板")).toBeInTheDocument();
+    expect(screen.getAllByText("图片")).toHaveLength(2);
+    expect(screen.getByText("暖调")).toBeInTheDocument();
+    expect(screen.getByText("人像")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "简约留白" }));
 
@@ -105,6 +109,25 @@ describe("模板列表页", () => {
     fail = false;
     await user.click(screen.getByRole("button", { name: "重新加载" }));
     expect(await screen.findByText("旅行明信片")).toBeInTheDocument();
+  });
+
+  it("视频模板显示类型、时长与效果标签", async () => {
+    server.use(
+      http.get(`${API_BASE}/api/template-categories`, () =>
+        HttpResponse.json({ items: [travelCategory] })
+      ),
+      http.get(`${API_BASE}/api/templates`, () =>
+        HttpResponse.json({ items: [videoTemplate], total: 1 })
+      )
+    );
+
+    renderWithProviders(<TemplatesView initialCategory="all" />);
+
+    const card = await screen.findByTestId("template-card");
+    expect(card).toHaveAttribute("data-kind", "VIDEO");
+    expect(screen.getByText("视频")).toBeInTheDocument();
+    expect(screen.getByText("15 秒")).toBeInTheDocument();
+    expect(screen.getByText("电影感")).toBeInTheDocument();
   });
 
   it("英文界面使用英文文案", async () => {

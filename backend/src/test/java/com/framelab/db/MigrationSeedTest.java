@@ -41,16 +41,16 @@ class MigrationSeedTest {
 
         assertThat(count("app_user")).isEqualTo(3);
         assertThat(count("template_category")).isEqualTo(6);
-        assertThat(count("template")).isEqualTo(10);
+        assertThat(count("template")).isEqualTo(13);
         assertThat(count("template_category_translation")).isEqualTo(6);
-        assertThat(count("template_translation")).isEqualTo(10);
+        assertThat(count("template_translation")).isEqualTo(13);
         assertThat(count("simulation_setting")).isEqualTo(1);
 
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM template
                  WHERE cover_path LIKE '/assets/templates/%.webp'
                    AND is_published = 1
-                """, Integer.class)).isEqualTo(10);
+                """, Integer.class)).isEqualTo(13);
 
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM template_category_translation WHERE locale <> 'en-US'

@@ -7,7 +7,7 @@ import { useAuthStore } from "@/features/auth/store";
 import { StudioView } from "@/features/studio/components/studio-view";
 import { API_BASE, sessionFixture } from "@/test/msw/handlers";
 import { server } from "@/test/msw/server";
-import { travelTemplateDetail } from "@/test/fixtures/templates";
+import { travelTemplateDetail, videoTemplateDetail } from "@/test/fixtures/templates";
 import { queuedTaskDetail, taskPage } from "@/test/fixtures/tasks";
 import { renderWithProviders } from "@/test/utils";
 
@@ -194,5 +194,22 @@ describe("制作台", () => {
     expect(router.push).toHaveBeenCalledWith(
       `/login?returnTo=${encodeURIComponent("/templates/travel-postcard")}`
     );
+  });
+
+  it("视频模板展示输出摘要、效果标签与生成视频按钮", async () => {
+    server.use(
+      http.get(`${API_BASE}/api/templates/city-walk-15s`, () =>
+        HttpResponse.json(videoTemplateDetail)
+      ),
+      http.get(`${API_BASE}/api/tasks`, () => HttpResponse.json(taskPage([])))
+    );
+
+    renderWithProviders(<StudioView templateId="city-walk-15s" />);
+
+    expect(await screen.findByRole("heading", { name: "城市漫游" })).toBeInTheDocument();
+    expect(screen.getByText("15 秒视频 · 1080×1920 · 含背景音乐")).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/选择第 \d 张图片/)).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: "生成视频" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("电影感")).toBeInTheDocument();
   });
 });

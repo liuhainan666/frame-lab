@@ -18,8 +18,8 @@ class TemplateApiTest extends ApiIntegrationTestSupport {
     void listsPublishedTemplatesInStableOrder() throws Exception {
         MvcResult result = mockMvc.perform(get("/api/templates"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(10))
-                .andExpect(jsonPath("$.items", hasSize(10)))
+                .andExpect(jsonPath("$.total").value(13))
+                .andExpect(jsonPath("$.items", hasSize(13)))
                 .andExpect(jsonPath("$.items[0].id").value("travel-postcard"))
                 .andExpect(jsonPath("$.items[0].title").value("旅行明信片"))
                 .andExpect(jsonPath("$.items[0].category.id").value("travel"))
@@ -28,6 +28,13 @@ class TemplateApiTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.items[0].requiredImageCount").value(2))
                 .andExpect(jsonPath("$.items[0].canvas.width").value(1600))
                 .andExpect(jsonPath("$.items[0].canvas.height").value(1200))
+                .andExpect(jsonPath("$.items[0].kind").value("IMAGE"))
+                .andExpect(jsonPath("$.items[0].effectTags", hasSize(2)))
+                .andExpect(jsonPath("$.items[0].effectTags[0]").value("travel"))
+                .andExpect(jsonPath("$.items[0].effectTags[1]").value("warm"))
+                .andExpect(jsonPath("$.items[0].output.kind").value("IMAGE"))
+                .andExpect(jsonPath("$.items[0].output.durationMs").doesNotExist())
+                .andExpect(jsonPath("$.items[0].output.hasAudio").value(false))
                 .andExpect(jsonPath("$.items[0].description").isNotEmpty())
                 .andReturn();
 
@@ -42,13 +49,17 @@ class TemplateApiTest extends ApiIntegrationTestSupport {
     void filtersByCategoryAndTreatsUnknownCategoryAsEmpty() throws Exception {
         mockMvc.perform(get("/api/templates").param("category", "travel"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.total").value(4))
                 .andExpect(jsonPath("$.items[0].id").value("travel-postcard"))
-                .andExpect(jsonPath("$.items[1].id").value("summer-coast"));
+                .andExpect(jsonPath("$.items[1].id").value("golden-hour"))
+                .andExpect(jsonPath("$.items[2].id").value("summer-coast"))
+                .andExpect(jsonPath("$.items[3].id").value("city-walk-15s"))
+                .andExpect(jsonPath("$.items[3].kind").value("VIDEO"))
+                .andExpect(jsonPath("$.items[3].output.durationMs").value(15000));
 
         mockMvc.perform(get("/api/templates").param("category", "all"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(10));
+                .andExpect(jsonPath("$.total").value(13));
 
         mockMvc.perform(get("/api/templates").param("category", "does-not-exist"))
                 .andExpect(status().isOk())
@@ -62,7 +73,7 @@ class TemplateApiTest extends ApiIntegrationTestSupport {
 
         mockMvc.perform(get("/api/templates"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(9));
+                .andExpect(jsonPath("$.total").value(12));
 
         mockMvc.perform(get("/api/templates/film-memory"))
                 .andExpect(status().isNotFound())
@@ -79,7 +90,70 @@ class TemplateApiTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.acceptedMimeTypes[0]").value("image/jpeg"))
                 .andExpect(jsonPath("$.acceptedMimeTypes[1]").value("image/png"))
                 .andExpect(jsonPath("$.maxFileSizeBytes").value(5242880))
+                .andExpect(jsonPath("$.kind").value("IMAGE"))
+                .andExpect(jsonPath("$.output.kind").value("IMAGE"))
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("max-age=60")));
+    }
+
+    @Test
+    void returnsVideoTemplateKindOutputAndEffectTags() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO template
+                  (id, category_id, kind, title, description, cover_path, render_spec, effect_tags,
+                   output_kind, required_image_count, accepted_mime_types, max_file_size_bytes,
+                   canvas_width, canvas_height, sort_order, is_published)
+                VALUES ('test-video', 'travel', 'VIDEO', '测试视频', '测试视频模板',
+                        '/assets/templates/travel-postcard.webp', ?, '["warm","cinematic"]', 'VIDEO',
+                        3, 'image/jpeg,image/png', 10485760, 1080, 1920, 5, 1)
+                """, """
+                {
+                  "version": 1,
+                  "kind": "VIDEO",
+                  "durationMs": 15000,
+                  "fps": 30,
+                  "resolution": { "width": 1080, "height": 1920 },
+                  "slots": [
+                    { "seq": 1, "durationMs": 3400, "transition": "fade", "transitionMs": 500, "motion": "zoom-in" },
+                    { "seq": 2, "durationMs": 3400, "transition": "slide-left", "transitionMs": 500, "motion": "pan-right" },
+                    { "seq": 3, "durationMs": 3400, "transition": "fade", "transitionMs": 500, "motion": "zoom-out" },
+                    { "seq": 4, "durationMs": 3400, "transition": "slide-left", "transitionMs": 500, "motion": "zoom-in" },
+                    { "seq": 5, "durationMs": 3400, "transition": "fade", "transitionMs": 500, "motion": "none" }
+                  ],
+                  "look": { "preset": "city-warm", "lut": "luts/city-warm-v1.cube" },
+                  "audio": { "path": "audio/city-walk-v1.mp3", "volume": 0.8, "fadeOutMs": 800 },
+                  "text": [],
+                  "watermark": true
+                }
+                """);
+
+        mockMvc.perform(get("/api/templates/test-video"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kind").value("VIDEO"))
+                .andExpect(jsonPath("$.effectTags", hasSize(2)))
+                .andExpect(jsonPath("$.effectTags[0]").value("warm"))
+                .andExpect(jsonPath("$.effectTags[1]").value("cinematic"))
+                .andExpect(jsonPath("$.output.kind").value("VIDEO"))
+                .andExpect(jsonPath("$.output.durationMs").value(15000))
+                .andExpect(jsonPath("$.output.width").value(1080))
+                .andExpect(jsonPath("$.output.height").value(1920))
+                .andExpect(jsonPath("$.output.hasAudio").value(true));
+    }
+
+    @Test
+    void rejectsBrokenTemplateSpec() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO template
+                  (id, category_id, kind, title, description, cover_path, render_spec,
+                   output_kind, required_image_count, accepted_mime_types, max_file_size_bytes,
+                   canvas_width, canvas_height, sort_order, is_published)
+                VALUES ('broken-spec', 'travel', 'IMAGE', '损坏模板', '用于校验渲染配置',
+                        '/assets/templates/travel-postcard.webp', '{"version":1,"kind":"IMAGE"}', 'IMAGE',
+                        1, 'image/jpeg,image/png', 10485760, 1200, 1600, 6, 1)
+                """);
+
+        mockMvc.perform(get("/api/templates/broken-spec"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("TEMPLATE_SPEC_INVALID"));
     }
 
     @Test

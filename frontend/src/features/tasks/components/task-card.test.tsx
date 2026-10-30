@@ -12,7 +12,8 @@ import {
   queuedTask,
   resumingTask,
   retryingTask,
-  succeededTask
+  succeededTask,
+  videoSucceededTask
 } from "@/test/fixtures/tasks";
 import { renderWithProviders } from "@/test/utils";
 
@@ -76,6 +77,18 @@ describe("任务卡", () => {
 
     await user.click(screen.getByTestId("task-card"));
     expect(onOpen).toHaveBeenCalledWith(succeededTask);
+  });
+
+  it("视频任务使用封面作为缩略并标记时长", async () => {
+    server.use(
+      http.get(`${API_BASE}/api/tasks/:id/result/poster`, () =>
+        new HttpResponse("jpeg", { headers: { "Content-Type": "image/jpeg" } })
+      )
+    );
+    renderWithProviders(<TaskCard task={videoSucceededTask} onOpen={() => {}} />);
+
+    expect(await screen.findByAltText("城市漫游 制作结果")).toBeInTheDocument();
+    expect(screen.getByText("15 秒")).toBeInTheDocument();
   });
 
   it("查询异常时只显示提示点，不改变任务状态", () => {

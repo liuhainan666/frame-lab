@@ -88,10 +88,36 @@ export const succeededTask: TaskSummary = {
   currentStage: "FINALIZE",
   result: {
     available: true,
+    kind: "IMAGE",
+    mimeType: "image/jpeg",
     url: "/api/tasks/4d4c8f5e-7a2d-4b9c-9a61-2d8f3b6c1e88/result",
+    posterUrl: null,
     width: 1600,
     height: 1200,
+    durationMs: null,
     sizeBytes: 2417780
+  },
+  finishedAt: "2026-10-28T08:21:05.160Z"
+};
+
+export const videoSucceededTask: TaskSummary = {
+  ...base,
+  id: "5e5c8f5e-7a2d-4b9c-9a61-2d8f3b6c1e99",
+  templateId: "city-walk-15s",
+  templateTitle: "城市漫游",
+  templateCoverUrl: "/assets/templates/golden-hour.webp",
+  status: "SUCCEEDED",
+  currentStage: "FINALIZE",
+  result: {
+    available: true,
+    kind: "VIDEO",
+    mimeType: "video/mp4",
+    url: "/api/tasks/5e5c8f5e-7a2d-4b9c-9a61-2d8f3b6c1e99/result",
+    posterUrl: "/api/tasks/5e5c8f5e-7a2d-4b9c-9a61-2d8f3b6c1e99/result/poster",
+    width: 1080,
+    height: 1920,
+    durationMs: 15000,
+    sizeBytes: 8123456
   },
   finishedAt: "2026-10-28T08:21:05.160Z"
 };
