@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.task.TaskMapper">
+
+    <resultMap id="taskMap" type="com.framelab.task.TaskRow">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="template_id" property="templateId"/>
+        <result column="template_title" property="templateTitle"/>
+        <result column="display_title" property="displayTitle"/>
+        <result column="template_cover_path" property="templateCoverPath"/>
+        <result column="canvas_width" property="canvasWidth"/>
+        <result column="canvas_height" property="canvasHeight"/>
+        <result column="client_request_id" property="clientRequestId"/>
+        <result column="status" property="status"/>
+        <result column="current_stage" property="currentStage"/>
+        <result column="max_step_attempts" property="maxStepAttempts"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="resume_count" property="resumeCount"/>
+        <result column="next_retry_at" property="nextRetryAt"/>
+        <result column="last_error_code" property="lastErrorCode"/>
+        <result column="last_error_detail" property="lastErrorDetail"/>
+        <result column="last_error_simulated" property="lastErrorSimulated"/>
+        <result column="failure_code" property="failureCode"/>
+        <result column="failure_args" property="failureArgs"/>
+        <result column="failure_detail" property="failureDetail"/>
+        <result column="failure_simulated" property="failureSimulated"/>
+        <result column="result_storage_key" property="resultStorageKey"/>
+        <result column="result_width" property="resultWidth"/>
+        <result column="result_height" property="resultHeight"/>
+        <result column="result_size_bytes" property="resultSizeBytes"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="row_version" property="rowVersion"/>
+    </resultMap>
+
+    <resultMap id="taskListMap" type="com.framelab.task.TaskListRow">
+        <id column="id" property="id"/>
+        <result column="template_id" property="templateId"/>
+        <result column="display_title" property="displayTitle"/>
+        <result column="template_cover_path" property="templateCoverPath"/>
+        <result column="status" property="status"/>
+        <result column="current_stage" property="currentStage"/>
+        <result column="failure_code" property="failureCode"/>
+        <result column="failure_args" property="failureArgs"/>
+        <result column="failure_simulated" property="failureSimulated"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="max_step_attempts" property="maxStepAttempts"/>
+        <result column="current_attempt_count" property="currentAttemptCount"/>
+        <result column="resume_count" property="resumeCount"/>
+        <result column="next_retry_at" property="nextRetryAt"/>
+        <result column="last_error_code" property="lastErrorCode"/>
+        <result column="last_error_simulated" property="lastErrorSimulated"/>
+        <result column="result_width" property="resultWidth"/>
+        <result column="result_height" property="resultHeight"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+    </resultMap>
+
+    <resultMap id="materialMap" type="com.framelab.task.TaskMaterialRow">
+        <result column="slot_index" property="slotIndex"/>
+        <result column="asset_id" property="assetId"/>
+    </resultMap>
+
+    <sql id="taskColumns">
+        t.id, t.user_id, t.template_id, t.template_title, t.template_cover_path,
+        t.canvas_width, t.canvas_height, t.client_request_id, t.status, t.current_stage,
+        t.max_step_attempts, t.retry_count, t.resume_count, t.next_retry_at,
+        t.last_error_code, t.last_error_detail, t.last_error_simulated,
+        t.failure_code, t.failure_args, t.failure_detail, t.failure_simulated,
+        t.result_storage_key, t.result_width, t.result_height, t.result_size_bytes,
+        t.created_at, t.started_at, t.finished_at, t.updated_at, t.row_version
+    </sql>
+
+    <select id="findOwnedById" resultMap="taskMap">
+        SELECT <include refid="taskColumns"/>,
+               COALESCE(tt.title, tm.title, t.template_title) AS display_title
+          FROM task t
+          LEFT JOIN template tm ON tm.id = t.template_id
+          LEFT JOIN template_translation tt
+            ON tt.template_id = t.template_id AND tt.locale = #{locale}
+         WHERE t.id = #{id}
+           AND t.user_id = #{userId}
+    </select>
+
+    <select id="findById" resultMap="taskMap">
+        SELECT <include refid="taskColumns"/>
+          FROM task t
+         WHERE t.id = #{id}
+    </select>
+
+    <select id="findByClientRequestId" resultMap="taskMap">
+        SELECT <include refid="taskColumns"/>
+          FROM task t
+         WHERE t.user_id = #{userId}
+           AND t.client_request_id = #{clientRequestId}
+    </select>
+
+    <select id="findMaterials" resultMap="materialMap">
+        SELECT slot_index, asset_id
+          FROM task_material
+         WHERE task_id = #{taskId}
+         ORDER BY slot_index
+    </select>
+
+    <select id="findMaterialAssetIds" resultType="string">
+        SELECT asset_id
+          FROM task_material
+         WHERE task_id = #{taskId}
+         ORDER BY slot_index
+    </select>
+
+    <insert id="insert">
+        INSERT INTO task
+          (id, user_id, template_id, template_title, template_cover_path,
+           canvas_width, canvas_height, client_request_id, status, current_stage,
+           max_step_attempts, retry_count, resume_count, failure_simulated)
+        VALUES
+          (#{id}, #{userId}, #{templateId}, #{templateTitle}, #{templateCoverPath},
+           #{canvasWidth}, #{canvasHeight}, #{clientRequestId}, 'QUEUED', NULL,
+           #{maxStepAttempts}, 0, 0, 0)
+    </insert>
+
+    <insert id="insertMaterial">
+        INSERT INTO task_material (task_id, slot_index, asset_id)
+        VALUES (#{taskId}, #{slotIndex}, #{assetId})
+    </insert>
+
+    <sql id="listWhere">
+        WHERE t.user_id = #{userId}
+        <if test="status != null">
+            AND t.status = #{status}
+        </if>
+        <if test="active">
+            AND t.status IN ('QUEUED','RUNNING','RETRYING')
+        </if>
+        <if test="templateId != null and templateId != ''">
+            AND t.template_id = #{templateId}
+        </if>
+    </sql>
+
+    <select id="findPage" resultMap="taskListMap">
+        SELECT t.id, t.template_id,
+               COALESCE(tt.title, tm.title, t.template_title) AS display_title,
+               t.template_cover_path, t.status, t.current_stage,
+               t.failure_code, t.failure_args, t.failure_simulated,
+               t.retry_count, t.max_step_attempts, t.resume_count,
+               t.next_retry_at, t.last_error_code, t.last_error_simulated,
+               t.result_width, t.result_height,
+               t.created_at, t.updated_at, t.finished_at,
+               COALESCE((
+                   SELECT s.attempt_count
+                     FROM task_step s
+                    WHERE s.task_id = t.id
+                      AND s.status IN ('RUNNING','FAILED','SUCCEEDED')
+                    ORDER BY s.seq DESC
+                    LIMIT 1
+               ), 0) AS current_attempt_count
+          FROM task t
+          LEFT JOIN template tm ON tm.id = t.template_id
+          LEFT JOIN template_translation tt
+            ON tt.template_id = t.template_id AND tt.locale = #{locale}
+        <include refid="listWhere"/>
+         ORDER BY t.created_at DESC, t.id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="int">
+        SELECT COUNT(1)
+          FROM task t
+        <include refid="listWhere"/>
+    </select>
+
+    <select id="lockNextClaimableId" resultType="string">
+        SELECT id
+          FROM task
+         WHERE status = 'QUEUED'
+            OR (status = 'RETRYING' AND next_retry_at &lt;= UTC_TIMESTAMP(3))
+         ORDER BY created_at, id
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+    </select>
+
+    <update id="markRunning">
+        UPDATE task
+           SET status = 'RUNNING',
+               current_stage = #{stage},
+               next_retry_at = NULL,
+               last_error_code = NULL,
+               last_error_detail = NULL,
+               last_error_simulated = NULL,
+               started_at = COALESCE(started_at, UTC_TIMESTAMP(3)),
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status IN ('QUEUED','RETRYING')
+           AND (status = 'QUEUED' OR next_retry_at &lt;= UTC_TIMESTAMP(3))
+    </update>
+
+    <update id="updateCurrentStage">
+        UPDATE task
+           SET current_stage = #{stage},
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markSucceeded">
+        UPDATE task
+           SET status = 'SUCCEEDED',
+               current_stage = 'FINALIZE',
+               result_storage_key = #{storageKey},
+               result_width = #{width},
+               result_height = #{height},
+               result_size_bytes = #{sizeBytes},
+               failure_code = NULL,
+               failure_args = NULL,
+               failure_detail = NULL,
+               failure_simulated = 0,
+               next_retry_at = NULL,
+               last_error_code = NULL,
+               last_error_detail = NULL,
+               last_error_simulated = NULL,
+               finished_at = UTC_TIMESTAMP(3),
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE task
+           SET status = 'FAILED',
+               failure_code = #{failureCode},
+               failure_args = #{failureArgs},
+               failure_detail = #{failureDetail},
+               failure_simulated = #{failureSimulated},
+               next_retry_at = NULL,
+               last_error_code = NULL,
+               last_error_detail = NULL,
+               last_error_simulated = NULL,
+               finished_at = UTC_TIMESTAMP(3),
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+</mapper>

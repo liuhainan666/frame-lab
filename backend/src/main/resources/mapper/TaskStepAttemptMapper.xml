@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.task.TaskStepAttemptMapper">
+
+    <resultMap id="attemptMap" type="com.framelab.task.TaskStepAttemptRow">
+        <id column="id" property="id"/>
+        <result column="task_id" property="taskId"/>
+        <result column="step_id" property="stepId"/>
+        <result column="attempt_no" property="attemptNo"/>
+        <result column="status" property="status"/>
+        <result column="error_code" property="errorCode"/>
+        <result column="error_detail" property="errorDetail"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <sql id="attemptColumns">
+        id, task_id, step_id, attempt_no, status, error_code, error_detail,
+        started_at, finished_at, created_at
+    </sql>
+
+    <insert id="insert">
+        INSERT INTO task_step_attempt (task_id, step_id, attempt_no, status, started_at)
+        VALUES (#{taskId}, #{stepId}, #{attemptNo}, 'RUNNING', UTC_TIMESTAMP(3))
+    </insert>
+
+    <select id="findByTask" resultMap="attemptMap">
+        SELECT a.id, a.task_id, a.step_id, a.attempt_no, a.status, a.error_code,
+               a.error_detail, a.started_at, a.finished_at, a.created_at
+          FROM task_step_attempt a
+          JOIN task_step s ON s.id = a.step_id
+         WHERE a.task_id = #{taskId}
+         ORDER BY s.seq, a.attempt_no
+    </select>
+
+    <select id="findRunningByStep" resultMap="attemptMap">
+        SELECT <include refid="attemptColumns"/>
+          FROM task_step_attempt
+         WHERE step_id = #{stepId}
+           AND status = 'RUNNING'
+         ORDER BY attempt_no DESC
+         LIMIT 1
+    </select>
+
+    <update id="markSucceeded">
+        UPDATE task_step_attempt
+           SET status = 'SUCCEEDED',
+               error_code = NULL,
+               error_detail = NULL,
+               finished_at = UTC_TIMESTAMP(3)
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE task_step_attempt
+           SET status = 'FAILED',
+               error_code = #{errorCode},
+               error_detail = #{errorDetail},
+               finished_at = UTC_TIMESTAMP(3)
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+</mapper>

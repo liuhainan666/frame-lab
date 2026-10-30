@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.task.TaskStepMapper">
+
+    <resultMap id="stepMap" type="com.framelab.task.TaskStepRow">
+        <id column="id" property="id"/>
+        <result column="task_id" property="taskId"/>
+        <result column="seq" property="seq"/>
+        <result column="stage" property="stage"/>
+        <result column="status" property="status"/>
+        <result column="attempt_count" property="attemptCount"/>
+        <result column="message_args" property="messageArgs"/>
+        <result column="error_code" property="errorCode"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="stepColumns">
+        id, task_id, seq, stage, status, attempt_count, message_args, error_code,
+        started_at, finished_at, updated_at
+    </sql>
+
+    <insert id="insert">
+        INSERT INTO task_step (task_id, seq, stage, status, attempt_count)
+        VALUES (#{taskId}, #{seq}, #{stage}, 'PENDING', 0)
+    </insert>
+
+    <select id="findByTask" resultMap="stepMap">
+        SELECT <include refid="stepColumns"/>
+          FROM task_step
+         WHERE task_id = #{taskId}
+         ORDER BY seq
+    </select>
+
+    <select id="findByTaskAndSeq" resultMap="stepMap">
+        SELECT <include refid="stepColumns"/>
+          FROM task_step
+         WHERE task_id = #{taskId}
+           AND seq = #{seq}
+    </select>
+
+    <update id="markRunning">
+        UPDATE task_step
+           SET status = 'RUNNING',
+               attempt_count = attempt_count + 1,
+               started_at = COALESCE(started_at, UTC_TIMESTAMP(3)),
+               finished_at = NULL,
+               error_code = NULL,
+               message_args = NULL
+         WHERE id = #{id}
+           AND status IN ('PENDING','FAILED')
+    </update>
+
+    <update id="markSucceeded">
+        UPDATE task_step
+           SET status = 'SUCCEEDED',
+               message_args = #{messageArgs},
+               error_code = NULL,
+               finished_at = UTC_TIMESTAMP(3)
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE task_step
+           SET status = 'FAILED',
+               error_code = #{errorCode},
+               message_args = NULL,
+               finished_at = UTC_TIMESTAMP(3)
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markSkippedAfter">
+        UPDATE task_step
+           SET status = 'SKIPPED',
+               error_code = NULL,
+               message_args = NULL
+         WHERE task_id = #{taskId}
+           AND seq &gt; #{seq}
+           AND status = 'PENDING'
+    </update>
+</mapper>
