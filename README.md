@@ -2,7 +2,7 @@
 
 深色画廊风格的素材制作网站：浏览模板、上传图片、提交三步异步制作任务，并在处理期间继续使用网站，最后查看个人历史与结果。前端使用 Next.js，后端使用 Spring Boot 3 + Spring Security + MyBatis，数据持久化到 MySQL 8.4。
 
-> 当前状态：M4 可靠性完成（自动重试、退避、终态失败收口、启动恢复与断点续跑），下一步进入 M5 前端底座与登录。设计文档仍是开发与验收的唯一口径。
+> 当前状态：M5 前端底座与登录完成（Next.js 15、设计 Token、基础组件、i18n、API 客户端、会话与登录页），下一步进入 M6 五个页面与视觉对齐。设计文档仍是开发与验收的唯一口径。
 
 ## 1. 文档入口
 
@@ -90,14 +90,23 @@ docker compose up --build
 
 在 M8 之前，本仓库尚不能一键启动完整应用；请按 [docs/11-development-plan.md](docs/11-development-plan.md) 的阶段推进。
 
-### 5.1 当前里程碑验证（M1 / M2 / M3 / M4）
+### 5.1 当前里程碑验证（M1 ～ M5）
 
 ```bash
 cd backend
 ./mvnw -B verify
+
+cd ../frontend
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2，并校验迁移、种子、登录会话、刷新令牌、问题响应、模板/分类、素材、任务提交与三步流水线，以及自动重试、退避、预算耗尽、终态失败与启动恢复。当前 97 个用例覆盖 BE-I-02 ～ 31 与 BE-U-07 ～ 25。
+Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2，并校验迁移、种子、登录会话、刷新令牌、问题响应、模板/分类、素材、任务提交与三步流水线，以及自动重试、退避、预算耗尽、终态失败与启动恢复。当前后端 97 个用例覆盖 BE-I-02 ～ 31 与 BE-U-07 ～ 25。
+
+前端 20 个用例覆盖 FE-U-15/16/25/27/30、语言切换与查询键、problem+json 映射、单飞刷新、登录校验/错误/回跳与基础组件；五个业务页面在 M6 接入。UI 冒烟已验证语言切换即时生效并持久化、登录回到 `returnTo`、受保护路由重定向与退出登录。
 
 手工联调（先启动 Compose MySQL，并以 `.env` 中的 `MYSQL_*` 环境变量运行 `spring-boot:run`）：
 
@@ -129,15 +138,15 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 | M2 | 安全、错误/i18n、模板与素材接口 | 完成 |
 | M3 | 任务受理、流水线、模拟与结果 | 完成 |
 | M4 | 自动重试、失败收口、续跑 | 完成 |
-| M5 | 前端底座与登录 | 下一步 |
-| M6 | 五个页面与视觉对齐 | 未开始 |
+| M5 | 前端底座与登录 | 完成 |
+| M6 | 五个页面与视觉对齐 | 下一步 |
 | M7 | 联调与验收 | 未开始 |
 | M8 | Compose、CI、README 与验收 commit | 未开始 |
 
 ## 8. 已知限制（开发中）
 
 - Flyway 10.20.1 对 MySQL 8.4 会输出“支持未测试”的警告；V1/V2 已在 MySQL 8.4.13 上执行通过，升级 Flyway 时复核。
-- 前端与 Compose 全链路尚未实现；当前后端已具备登录会话、模板/分类、素材、任务提交/查询、三步流水线、自动重试、启动恢复、模拟控制与结果读取能力。
+- 五个业务页面、Compose 全链路与 CI 尚未实现；当前后端已具备登录会话、模板/分类、素材、任务提交/查询、三步流水线、自动重试、启动恢复、模拟控制与结果读取能力，前端已具备登录、会话恢复、语言切换与应用外壳。
 - 数据库连接使用 `READ COMMITTED`，避免 `SKIP LOCKED` 认领在 `REPEATABLE READ` 下产生间隙锁死锁；调整隔离级别时需复跑并发认领用例。
 - 本地 `.env` 若沿用旧的 root 账号或 3306 端口，需按 [.env.example](.env.example) 的演示值调整，或改用独立端口与账号；仓库不会提交 `.env`。
 - 开发默认使用固定 JWT 密钥；生产 profile 必须提供至少 32 字节的随机 `FRAMELAB_JWT_SECRET`，否则启动失败。
@@ -151,6 +160,8 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 - [x] 后端安全与基础 API（登录 / 刷新 / 退出 / 模板 / 素材）
 - [x] 后端任务核心（提交 / 查询 / 三步流水线 / 模拟 / 结果）
 - [x] 后端单元与 Testcontainers 集成测试
+- [x] 前端底座与登录（Next.js、Token、i18n、会话、登录页）
+- [ ] 五个业务页面与视觉对齐
 - [ ] 测试与 CI 配置
 - [ ] Docker Compose 一键启动
 - [ ] 演示脚本、AI 使用说明、已知限制
@@ -159,3 +170,8 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 ## 10. 参考界面
 
 参考截图位于 [docs/assets/reference](docs/assets/reference)：UI-01 模板列表、UI-02 模板详情/上传、UI-03 处理中与历史、UI-04 账号。页面按“主布局与信息层级对齐、不逐像素复刻”的口径实现，逐页对照与差异登记见 [docs/11-development-plan.md](docs/11-development-plan.md#5-页面实施与参考图对齐)。
+
+## 11. 第三方资源
+
+- Inter Variable 与 JetBrains Mono 以 SIL Open Font License 1.1 自托管，字体与许可证位于 [frontend/src/assets/fonts](frontend/src/assets/fonts)。
+- 模板封面来源与许可证见 [backend/src/main/resources/static/assets/CREDITS.md](backend/src/main/resources/static/assets/CREDITS.md)。
