@@ -23,9 +23,13 @@ export type TaskRetry = {
 
 export type TaskResult = {
   available: boolean;
+  kind: "IMAGE" | "VIDEO";
+  mimeType: string;
   url: string | null;
+  posterUrl: string | null;
   width: number | null;
   height: number | null;
+  durationMs: number | null;
   sizeBytes?: number | null;
 };
 

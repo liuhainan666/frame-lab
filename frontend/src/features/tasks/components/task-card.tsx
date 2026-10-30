@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock3, RotateCw } from "lucide-react";
+import { CheckCircle2, Clock3, Play, RotateCw } from "lucide-react";
 
 import { useI18n } from "@/i18n/provider";
 import { formatClock, formatElapsed, formatTaskTime } from "@/i18n/format";
@@ -34,8 +34,15 @@ export function TaskCard({
 }) {
   const { t, locale } = useI18n();
   const effective = displayStatus(task);
-  const resultUrl = task.status === "SUCCEEDED" ? task.result?.url ?? null : null;
-  const result = useObjectUrl(resultUrl, Boolean(resultUrl));
+  const isVideoResult = task.result?.kind === "VIDEO";
+  const resultPath =
+    task.status === "SUCCEEDED"
+      ? isVideoResult
+        ? task.result?.posterUrl ?? null
+        : task.result?.url ?? null
+      : null;
+  const result = useObjectUrl(resultPath, Boolean(resultPath));
+  const videoSeconds = task.result?.durationMs ? Math.round(task.result.durationMs / 1000) : null;
   const stageKey = stageLabelKey(task.currentStage);
   const failedStageKey = stageLabelKey(task.failure?.stage ?? task.currentStage ?? null);
   const time = formatTaskTime(
@@ -103,6 +110,13 @@ export function TaskCard({
           <div className="absolute inset-0 bg-gradient-to-b from-bg/20 via-bg/70 to-bg" />
         </>
       )}
+
+      {task.status === "SUCCEEDED" && isVideoResult ? (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur">
+          <Play aria-hidden className="h-2.5 w-2.5 fill-current" />
+          {videoSeconds ? t("templates.videoDuration", { seconds: videoSeconds }) : t("templates.badgeVideo")}
+        </span>
+      ) : null}
 
       {task.status === "SUCCEEDED" && result.status === "loading" ? (
         <Skeleton className="absolute inset-0 rounded-none" />

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { useAuthStore } from "@/features/auth/store";
+import { templateDurationSeconds, templateEffectLabel } from "@/features/templates/effects";
 import { useTemplate } from "@/features/templates/queries";
 import { formatFileSize } from "@/i18n/format";
 import { useI18n } from "@/i18n/provider";
@@ -67,6 +68,7 @@ function SubmitButton({
   ready,
   submitting,
   failed,
+  video,
   onStart,
   onLogin,
   className
@@ -74,6 +76,7 @@ function SubmitButton({
   ready: boolean;
   submitting: boolean;
   failed: boolean;
+  video: boolean;
   onStart: () => void;
   onLogin: () => void;
   className?: string;
@@ -101,7 +104,9 @@ function SubmitButton({
     ? t("studio.submitting")
     : failed
       ? t("studio.retrySubmit")
-      : t("studio.start");
+      : video
+        ? t("studio.createVideo")
+        : t("studio.start");
 
   return (
     <button
@@ -413,6 +418,8 @@ export function StudioView({
 
   const mimeLabel = template.acceptedMimeTypes.map(typeLabel).join(" / ");
   const sizeLabel = formatFileSize(template.maxFileSizeBytes, locale);
+  const isVideo = template.kind === "VIDEO";
+  const videoSeconds = templateDurationSeconds(template.output.durationMs);
   const uploadGridClass =
     total === 1
       ? "grid max-w-[220px] grid-cols-1 gap-3"
@@ -440,6 +447,7 @@ export function StudioView({
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="accent">{template.category.name}</Badge>
+              <Badge tone="neutral">{isVideo ? t("templates.badgeVideo") : t("templates.badgeImage")}</Badge>
               <span className="mono text-[11px] text-ink-muted">
                 {template.canvas.width} × {template.canvas.height}
               </span>
@@ -450,6 +458,21 @@ export function StudioView({
             <p className="line-clamp-3 text-[14px] leading-[1.7] text-ink-secondary">
               {template.description}
             </p>
+            {template.effectTags.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+                  {t("templates.effectsLabel")}
+                </span>
+                {template.effectTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink-secondary"
+                  >
+                    {templateEffectLabel(tag, t)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink-muted">
               <span>{t("studio.requirementsPhotos", { count: total })}</span>
               <span aria-hidden>·</span>
@@ -457,6 +480,21 @@ export function StudioView({
               <span aria-hidden>·</span>
               <span>{t("studio.requirementsSize", { size: sizeLabel })}</span>
             </div>
+            {isVideo && videoSeconds ? (
+              <p className="text-[12px] text-ink-muted">
+                {template.output.hasAudio
+                  ? t("studio.videoOutputMusic", {
+                      seconds: videoSeconds,
+                      width: template.output.width,
+                      height: template.output.height
+                    })
+                  : t("studio.videoOutput", {
+                      seconds: videoSeconds,
+                      width: template.output.width,
+                      height: template.output.height
+                    })}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between gap-3">
@@ -503,6 +541,7 @@ export function StudioView({
               ready={allUploaded}
               submitting={submitting}
               failed={submitFailed}
+              video={isVideo}
               onStart={() => void handleSubmit()}
               onLogin={() => router.push(loginHref)}
             />
@@ -534,6 +573,7 @@ export function StudioView({
           ready={allUploaded}
           submitting={submitting}
           failed={submitFailed}
+          video={isVideo}
           onStart={() => void handleSubmit()}
           onLogin={() => router.push(loginHref)}
         />

@@ -95,6 +95,7 @@ function DetailBody({ task }: { task: TaskDetail }) {
   const [resultOpen, setResultOpen] = useState(false);
   const effective = displayStatus(task);
   const succeeded = task.status === "SUCCEEDED";
+  const isVideo = task.result?.kind === "VIDEO";
   const result = useObjectUrl(succeeded ? task.result?.url : null, succeeded);
   const coverUrl = task.templateCoverUrl ? backendUrl(task.templateCoverUrl) : null;
   const failureStageKey = stageLabelKey(task.failure?.stage ?? null);
@@ -108,16 +109,29 @@ function DetailBody({ task }: { task: TaskDetail }) {
               <>
                 {result.status === "loading" ? <Skeleton className="absolute inset-0 rounded-none" /> : null}
                 {result.url ? (
-                  <img
-                    src={result.url}
-                    alt={t("tasks.resultAlt", { title: task.templateTitle })}
-                    className="h-full w-full object-contain"
-                  />
+                  isVideo ? (
+                    <video
+                      src={result.url}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      aria-label={t("tasks.resultAlt", { title: task.templateTitle })}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <img
+                      src={result.url}
+                      alt={t("tasks.resultAlt", { title: task.templateTitle })}
+                      className="h-full w-full object-contain"
+                    />
+                  )
                 ) : null}
                 {result.status === "error" ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-muted">
                     <ImageOff aria-hidden className="h-5 w-5" />
-                    <span className="text-[12px]">{t("tasks.imageError")}</span>
+                    <span className="text-[12px]">
+                      {isVideo ? t("tasks.videoError") : t("tasks.imageError")}
+                    </span>
                   </div>
                 ) : null}
               </>
