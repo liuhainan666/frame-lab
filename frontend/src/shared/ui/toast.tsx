@@ -138,7 +138,7 @@ function ToastViewport({
     <div
       aria-live="polite"
       aria-atomic="false"
-      className="pointer-events-none fixed inset-x-0 top-[76px] z-[80] flex justify-center px-4"
+      className="toast-viewport pointer-events-none flex justify-center px-4"
     >
       <div className="flex w-[min(420px,100%)] flex-col gap-2">
         {items.map((item) => {

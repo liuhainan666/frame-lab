@@ -73,7 +73,7 @@ describe("Dialog 与 Toast", () => {
     const toast = screen.getByTestId("toast");
     expect(toast).toHaveTextContent("任务已创建");
     expect(toast).toHaveTextContent("正在排队");
-    expect(toast.parentElement?.parentElement).toHaveClass("top-[76px]");
+    expect(toast.parentElement?.parentElement).toHaveClass("toast-viewport");
 
     await user.click(screen.getByRole("button", { name: "关闭" }));
     expect(screen.queryByText("任务已创建")).not.toBeInTheDocument();
