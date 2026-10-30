@@ -45,7 +45,7 @@
         UPDATE task_step
            SET status = 'RUNNING',
                attempt_count = attempt_count + 1,
-               started_at = COALESCE(started_at, UTC_TIMESTAMP(3)),
+               started_at = UTC_TIMESTAMP(3),
                finished_at = NULL,
                error_code = NULL,
                message_args = NULL
@@ -81,5 +81,20 @@
          WHERE task_id = #{taskId}
            AND seq &gt; #{seq}
            AND status = 'PENDING'
+    </update>
+
+    <update id="resetForResume">
+        UPDATE task_step
+           SET status = 'PENDING',
+               started_at = NULL,
+               finished_at = NULL,
+               error_code = NULL,
+               message_args = NULL,
+               attempt_count = CASE
+                   WHEN #{decrementAttempt} AND attempt_count &gt; 0 THEN attempt_count - 1
+                   ELSE attempt_count
+               END
+         WHERE id = #{id}
+           AND status IN ('PENDING','RUNNING','FAILED')
     </update>
 </mapper>

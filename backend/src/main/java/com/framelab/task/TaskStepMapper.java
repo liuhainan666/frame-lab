@@ -22,4 +22,6 @@ public interface TaskStepMapper {
     int markFailed(@Param("id") long id, @Param("errorCode") String errorCode);
 
     int markSkippedAfter(@Param("taskId") String taskId, @Param("seq") int seq);
+
+    int resetForResume(@Param("id") long id, @Param("decrementAttempt") boolean decrementAttempt);
 }
