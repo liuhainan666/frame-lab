@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -13,6 +13,7 @@ import { isApiError } from "@/shared/api/errors";
 import type { TranslateFn } from "@/i18n/translate";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { useToast } from "@/shared/ui/toast";
 
 const DEMO_ACCOUNTS: Array<{
   email: string;
@@ -43,12 +44,12 @@ function authErrorMessage(error: unknown, t: TranslateFn): string {
 export function LoginForm({ returnTo }: { returnTo: string }) {
   const { t } = useI18n();
   const router = useRouter();
+  const { toast } = useToast();
   const status = useAuthStore((state) => state.status);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -61,7 +62,6 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
     setEmail(nextEmail);
     setPassword(nextPassword);
     setFieldErrors({});
-    setFormError(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -72,12 +72,10 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
         email: validation.email ? t("auth.invalidEmail") : undefined,
         password: validation.password ? t("auth.passwordRequired") : undefined
       });
-      setFormError(null);
       return;
     }
 
     setSubmitting(true);
-    setFormError(null);
     setFieldErrors({});
     try {
       await login({ email: email.trim(), password });
@@ -92,7 +90,7 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
         }
         setFieldErrors(apiFieldErrors);
       }
-      setFormError(authErrorMessage(error, t));
+      toast({ title: authErrorMessage(error, t), tone: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -100,16 +98,6 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
 
   return (
     <form noValidate onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
-      {formError ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-[var(--radius-sm)] border border-danger/25 bg-danger-soft px-3.5 py-3 text-[12px] leading-[18px] text-danger"
-        >
-          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{formError}</span>
-        </div>
-      ) : null}
-
       <Input
         label={t("auth.email")}
         type="email"

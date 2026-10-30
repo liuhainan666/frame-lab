@@ -1,10 +1,13 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 
 import { LoginView } from "@/features/auth/components/login-view";
 import { useAuthStore } from "@/features/auth/store";
 import { sanitizeReturnTo } from "@/shared/lib/return-to";
+import { API_BASE } from "@/test/msw/handlers";
+import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/utils";
 
 const router = vi.hoisted(() => ({
@@ -54,6 +57,21 @@ describe("登录页", () => {
     await user.click(screen.getByRole("button", { name: "登录" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("邮箱或密码不正确");
+    expect(useAuthStore.getState().status).toBe("unknown");
+  });
+
+  it("网络失败时用顶部气泡提示", async () => {
+    server.use(http.post(`${API_BASE}/api/auth/login`, () => HttpResponse.error()));
+    const user = userEvent.setup();
+    renderWithProviders(<LoginView returnTo="/" />);
+
+    await user.type(screen.getByLabelText("邮箱"), "demo@framelab.local");
+    await user.type(screen.getByLabelText("密码"), "Demo1234!");
+    await user.click(screen.getByRole("button", { name: "登录" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "网络连接失败，请检查后重试"
+    );
     expect(useAuthStore.getState().status).toBe("unknown");
   });
 
