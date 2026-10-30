@@ -17,8 +17,11 @@ import javax.imageio.ImageIO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.framelab.simulation.SimulationService;
 import com.framelab.task.TaskClaimService;
+import com.framelab.task.TaskStepService;
 import com.framelab.task.TaskSubmissionService;
+import com.framelab.task.worker.StartupRecoveryService;
 import com.framelab.task.worker.TaskPipeline;
+import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -37,7 +40,16 @@ abstract class TaskTestSupport extends ApiIntegrationTestSupport {
     protected TaskSubmissionService taskSubmissionService;
 
     @Autowired
+    protected TaskStepService taskStepService;
+
+    @Autowired
     protected SimulationService simulationService;
+
+    @Autowired
+    protected StartupRecoveryService startupRecoveryService;
+
+    @Autowired
+    protected SqlSessionTemplate sqlSessionTemplate;
 
     protected String uploadJpeg(LoginResult login, String templateId, int width, int height, Color color)
             throws Exception {
@@ -86,6 +98,21 @@ abstract class TaskTestSupport extends ApiIntegrationTestSupport {
                        finalize_delay_ms = 0
                  WHERE id = 1
                 """);
+        clearMapperCache();
+    }
+
+    protected void injectFailure(String stage, int remaining, boolean retryable) {
+        jdbcTemplate.update("""
+                UPDATE simulation_setting
+                   SET material_check_delay_ms = 0,
+                       generate_delay_ms = 0,
+                       finalize_delay_ms = 0,
+                       fail_stage = ?,
+                       fail_times = ?,
+                       fail_retryable = ?
+                 WHERE id = 1
+                """, stage, remaining, retryable);
+        clearMapperCache();
     }
 
     protected void runQueuedTasks() {
@@ -93,6 +120,19 @@ abstract class TaskTestSupport extends ApiIntegrationTestSupport {
         while ((claim = taskClaimService.claimNext()) != null) {
             taskPipeline.run(claim);
         }
+    }
+
+    protected void makeRetryDue(String taskId) {
+        jdbcTemplate.update("""
+                UPDATE task
+                   SET next_retry_at = DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND)
+                 WHERE id = ?
+                """, taskId);
+        clearMapperCache();
+    }
+
+    protected void clearMapperCache() {
+        sqlSessionTemplate.clearCache();
     }
 
     protected JsonNode taskDetail(LoginResult login, String taskId, String acceptLanguage) throws Exception {
