@@ -18,6 +18,10 @@ public class CorsConfig {
         configuration.setAllowedOrigins(origins == null || origins.isEmpty()
                 ? List.of("http://localhost:3000")
                 : origins);
+        List<String> originPatterns = properties.getCorsAllowedOriginPatterns();
+        if (originPatterns != null && !originPatterns.isEmpty()) {
+            configuration.setAllowedOriginPatterns(originPatterns);
+        }
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept-Language"));
         configuration.setExposedHeaders(List.of("Location", "Idempotent-Replay", "X-Request-Id",

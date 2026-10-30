@@ -19,6 +19,7 @@ public class SecurityProperties {
     private String cookieName = "framelab_rt";
     private boolean cookieSecure;
     private List<String> corsAllowedOrigins = new ArrayList<>(List.of("http://localhost:3000"));
+    private List<String> corsAllowedOriginPatterns = new ArrayList<>();
     private int loginMaxFailures = 5;
     private Duration loginWindow = Duration.ofMinutes(15);
 
@@ -100,6 +101,14 @@ public class SecurityProperties {
 
     public void setCorsAllowedOrigins(List<String> corsAllowedOrigins) {
         this.corsAllowedOrigins = corsAllowedOrigins;
+    }
+
+    public List<String> getCorsAllowedOriginPatterns() {
+        return corsAllowedOriginPatterns;
+    }
+
+    public void setCorsAllowedOriginPatterns(List<String> corsAllowedOriginPatterns) {
+        this.corsAllowedOriginPatterns = corsAllowedOriginPatterns;
     }
 
     public int getLoginMaxFailures() {
