@@ -47,3 +47,60 @@ export function formatFileSize(bytes: number, locale: Locale): string {
   }).format(value);
   return `${formatted} ${units[unitIndex]}`;
 }
+
+export function formatTaskTime(
+  value: string | number | Date,
+  locale: Locale,
+  todayLabel: string,
+  yesterdayLabel: string
+): string {
+  const date = new Date(value);
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const isYesterday =
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate();
+
+  const time = new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
+
+  if (sameDay) {
+    return time;
+  }
+  if (isYesterday) {
+    return `${yesterdayLabel} ${time}`;
+  }
+
+  const options: Intl.DateTimeFormatOptions =
+    date.getFullYear() === now.getFullYear()
+      ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }
+      : { year: "numeric", month: "2-digit", day: "2-digit" };
+  return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
+export function formatClock(value: string | number | Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date(value));
+}
+
+export function formatElapsed(from: string | number | Date, now: number = Date.now()): string {
+  const seconds = Math.max(0, Math.floor((now - new Date(from).getTime()) / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}m ${remainder.toString().padStart(2, "0")}s`;
+}
+
