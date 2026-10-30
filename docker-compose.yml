@@ -24,5 +24,60 @@ services:
       retries: 20
       start_period: 30s
 
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-framelab}
+      MYSQL_USER: ${MYSQL_USER:-framelab}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-framelab_pass}
+      FRAMELAB_JWT_SECRET: ${FRAMELAB_JWT_SECRET:-framelab-demo-secret-change-me-32bytes-minimum}
+      FRAMELAB_STORAGE_ROOT: /app/storage
+      FRAMELAB_CORS_ALLOWED_ORIGINS: ${FRAMELAB_CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      FRAMELAB_COOKIE_SECURE: ${FRAMELAB_COOKIE_SECURE:-false}
+      FRAMELAB_WORKER_THREADS: ${FRAMELAB_WORKER_THREADS:-2}
+      FRAMELAB_WORKER_POLL_MS: ${FRAMELAB_WORKER_POLL_MS:-500}
+      FRAMELAB_RETRY_MAX_STEP_ATTEMPTS: ${FRAMELAB_RETRY_MAX_STEP_ATTEMPTS:-3}
+      FRAMELAB_RETRY_BACKOFF_BASE_SECONDS: ${FRAMELAB_RETRY_BACKOFF_BASE_SECONDS:-2}
+      FRAMELAB_RETRY_BACKOFF_MAX_SECONDS: ${FRAMELAB_RETRY_BACKOFF_MAX_SECONDS:-30}
+    ports:
+      - "8080:8080"
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8080}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
 volumes:
   mysql-data:
+  storage:
