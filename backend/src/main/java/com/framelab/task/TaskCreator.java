@@ -28,10 +28,13 @@ public class TaskCreator {
         task.setId(Uuids.newId());
         task.setUserId(userId);
         task.setTemplateId(template.getId());
+        task.setTemplateKind(template.getKind());
         task.setTemplateTitle(template.getTitle());
         task.setTemplateCoverPath(template.getCoverPath());
+        task.setRenderSpecSnapshot(template.getRenderSpec());
         task.setCanvasWidth(template.getCanvasWidth());
         task.setCanvasHeight(template.getCanvasHeight());
+        task.setOutputKind(template.getOutputKind());
         task.setClientRequestId(clientRequestId);
         task.setMaxStepAttempts(retryProperties.getMaxStepAttempts());
         taskMapper.insert(task);

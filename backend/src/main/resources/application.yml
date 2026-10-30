@@ -68,6 +68,13 @@ framelab:
     max-step-attempts: ${FRAMELAB_RETRY_MAX_STEP_ATTEMPTS:3}
     backoff-base-seconds: ${FRAMELAB_RETRY_BACKOFF_BASE_SECONDS:2}
     backoff-max-seconds: ${FRAMELAB_RETRY_BACKOFF_MAX_SECONDS:30}
+  ffmpeg:
+    enabled: ${FRAMELAB_FFMPEG_ENABLED:true}
+    binary: ${FRAMELAB_FFMPEG_BINARY:ffmpeg}
+    probe: ${FRAMELAB_FFMPEG_PROBE:ffprobe}
+    timeout: ${FRAMELAB_FFMPEG_TIMEOUT:180s}
+    max-concurrent: ${FRAMELAB_FFMPEG_MAX_CONCURRENT:1}
+    max-output-bytes: ${FRAMELAB_FFMPEG_MAX_OUTPUT_BYTES:209715200}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml

@@ -40,4 +40,21 @@ public class TaskResultService {
             throw ApiException.of(ErrorCode.SERVICE_UNAVAILABLE);
         }
     }
+
+    public TaskResultContent poster(long userId, String taskId) {
+        TaskRow task = taskMapper.findOwnedById(taskId, userId,
+                LocaleSupport.tag(LocaleContextHolder.getLocale()));
+        if (task == null) {
+            throw ApiException.of(ErrorCode.TASK_NOT_FOUND);
+        }
+        if (task.getStatus() != TaskStatus.SUCCEEDED || task.getResultPosterKey() == null) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        try {
+            return new TaskResultContent(task, objectStorage.open(task.getResultPosterKey()));
+        } catch (StorageException ex) {
+            log.error("task.poster_open_failed taskId={}", taskId, ex);
+            throw ApiException.of(ErrorCode.SERVICE_UNAVAILABLE);
+        }
+    }
 }

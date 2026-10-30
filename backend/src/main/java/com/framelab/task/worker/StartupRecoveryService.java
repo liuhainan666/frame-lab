@@ -63,8 +63,10 @@ public class StartupRecoveryService {
 
             boolean allSucceeded = steps.stream().allMatch(step -> step.getStatus() == StepStatus.SUCCEEDED);
             if (allSucceeded && task.getResultStorageKey() != null) {
-                taskMapper.markSucceeded(taskId, task.getResultStorageKey(), task.getResultWidth(),
-                        task.getResultHeight(), task.getResultSizeBytes());
+                taskMapper.markSucceeded(taskId, task.getResultStorageKey(),
+                        task.getResultMimeType(), task.getResultPosterKey(),
+                        task.getResultWidth(), task.getResultHeight(),
+                        task.getResultDurationMs(), task.getResultSizeBytes());
                 succeeded++;
             } else {
                 taskMapper.markQueuedForResume(taskId);

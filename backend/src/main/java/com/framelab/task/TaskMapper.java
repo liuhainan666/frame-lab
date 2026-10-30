@@ -47,8 +47,11 @@ public interface TaskMapper {
 
     int markSucceeded(@Param("id") String id,
                       @Param("storageKey") String storageKey,
+                      @Param("mimeType") String mimeType,
+                      @Param("posterKey") String posterKey,
                       @Param("width") int width,
                       @Param("height") int height,
+                      @Param("durationMs") Integer durationMs,
                       @Param("sizeBytes") long sizeBytes);
 
     int markRetrying(@Param("id") String id,

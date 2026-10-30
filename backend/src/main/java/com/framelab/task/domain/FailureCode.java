@@ -5,6 +5,11 @@ public enum FailureCode {
     MATERIAL_CHECK_FAILED(TaskStage.MATERIAL_CHECK, false),
     GENERATION_FAILED(TaskStage.GENERATE, false),
     RESULT_RENDER_FAILED(TaskStage.FINALIZE, true),
+    VIDEO_UNAVAILABLE(TaskStage.MATERIAL_CHECK, false),
+    VIDEO_INPUT_INVALID(TaskStage.MATERIAL_CHECK, false),
+    VIDEO_RENDER_FAILED(TaskStage.FINALIZE, true),
+    VIDEO_TIMEOUT(TaskStage.FINALIZE, true),
+    VIDEO_OUTPUT_INVALID(TaskStage.FINALIZE, true),
     STORAGE_UNAVAILABLE(null, true),
     INTERNAL_ERROR(null, true);
 

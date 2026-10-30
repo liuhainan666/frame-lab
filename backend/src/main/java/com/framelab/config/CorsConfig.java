@@ -25,7 +25,8 @@ public class CorsConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept-Language"));
         configuration.setExposedHeaders(List.of("Location", "Idempotent-Replay", "X-Request-Id",
-                "Retry-After", "Content-Language", "Content-Disposition"));
+                "Retry-After", "Content-Language", "Content-Disposition",
+                "Accept-Ranges", "Content-Range"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

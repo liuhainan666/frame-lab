@@ -4,11 +4,13 @@ import java.time.LocalDateTime;
 
 import com.framelab.task.domain.TaskStage;
 import com.framelab.task.domain.TaskStatus;
+import com.framelab.template.TemplateKind;
 
 public class TaskListRow {
 
     private String id;
     private String templateId;
+    private TemplateKind outputKind;
     private String displayTitle;
     private String templateCoverPath;
     private TaskStatus status;
@@ -25,6 +27,9 @@ public class TaskListRow {
     private Boolean lastErrorSimulated;
     private Integer resultWidth;
     private Integer resultHeight;
+    private Integer resultDurationMs;
+    private String resultMimeType;
+    private String resultPosterKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime finishedAt;
@@ -43,6 +48,14 @@ public class TaskListRow {
 
     public void setTemplateId(String templateId) {
         this.templateId = templateId;
+    }
+
+    public TemplateKind getOutputKind() {
+        return outputKind;
+    }
+
+    public void setOutputKind(TemplateKind outputKind) {
+        this.outputKind = outputKind;
     }
 
     public String getDisplayTitle() {
@@ -171,6 +184,30 @@ public class TaskListRow {
 
     public void setResultHeight(Integer resultHeight) {
         this.resultHeight = resultHeight;
+    }
+
+    public Integer getResultDurationMs() {
+        return resultDurationMs;
+    }
+
+    public void setResultDurationMs(Integer resultDurationMs) {
+        this.resultDurationMs = resultDurationMs;
+    }
+
+    public String getResultMimeType() {
+        return resultMimeType;
+    }
+
+    public void setResultMimeType(String resultMimeType) {
+        this.resultMimeType = resultMimeType;
+    }
+
+    public String getResultPosterKey() {
+        return resultPosterKey;
+    }
+
+    public void setResultPosterKey(String resultPosterKey) {
+        this.resultPosterKey = resultPosterKey;
     }
 
     public LocalDateTime getCreatedAt() {

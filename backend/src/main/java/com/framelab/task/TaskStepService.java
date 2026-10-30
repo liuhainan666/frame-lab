@@ -51,9 +51,11 @@ public class TaskStepService {
 
     @Transactional
     public void completeFinal(TaskClaimService.ClaimedStep claim, String messageArgs,
-                              String storageKey, int width, int height, long sizeBytes) {
+                              String storageKey, String mimeType, String posterKey,
+                              int width, int height, Integer durationMs, long sizeBytes) {
         succeedAttemptAndStep(claim.stepId(), messageArgs);
-        if (taskMapper.markSucceeded(claim.taskId(), storageKey, width, height, sizeBytes) == 0) {
+        if (taskMapper.markSucceeded(claim.taskId(), storageKey, mimeType, posterKey,
+                width, height, durationMs, sizeBytes) == 0) {
             throw new IllegalStateException("Task is no longer running");
         }
     }

@@ -7,14 +7,17 @@
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
         <result column="template_id" property="templateId"/>
+        <result column="template_kind" property="templateKind"/>
         <result column="template_title" property="templateTitle"/>
         <result column="display_title" property="displayTitle"/>
         <result column="template_cover_path" property="templateCoverPath"/>
+        <result column="render_spec_snapshot" property="renderSpecSnapshot"/>
         <result column="canvas_width" property="canvasWidth"/>
         <result column="canvas_height" property="canvasHeight"/>
         <result column="client_request_id" property="clientRequestId"/>
         <result column="status" property="status"/>
         <result column="current_stage" property="currentStage"/>
+        <result column="output_kind" property="outputKind"/>
         <result column="max_step_attempts" property="maxStepAttempts"/>
         <result column="retry_count" property="retryCount"/>
         <result column="resume_count" property="resumeCount"/>
@@ -27,8 +30,11 @@
         <result column="failure_detail" property="failureDetail"/>
         <result column="failure_simulated" property="failureSimulated"/>
         <result column="result_storage_key" property="resultStorageKey"/>
+        <result column="result_mime_type" property="resultMimeType"/>
+        <result column="result_poster_key" property="resultPosterKey"/>
         <result column="result_width" property="resultWidth"/>
         <result column="result_height" property="resultHeight"/>
+        <result column="result_duration_ms" property="resultDurationMs"/>
         <result column="result_size_bytes" property="resultSizeBytes"/>
         <result column="created_at" property="createdAt"/>
         <result column="started_at" property="startedAt"/>
@@ -40,6 +46,7 @@
     <resultMap id="taskListMap" type="com.framelab.task.TaskListRow">
         <id column="id" property="id"/>
         <result column="template_id" property="templateId"/>
+        <result column="output_kind" property="outputKind"/>
         <result column="display_title" property="displayTitle"/>
         <result column="template_cover_path" property="templateCoverPath"/>
         <result column="status" property="status"/>
@@ -56,6 +63,9 @@
         <result column="last_error_simulated" property="lastErrorSimulated"/>
         <result column="result_width" property="resultWidth"/>
         <result column="result_height" property="resultHeight"/>
+        <result column="result_duration_ms" property="resultDurationMs"/>
+        <result column="result_mime_type" property="resultMimeType"/>
+        <result column="result_poster_key" property="resultPosterKey"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
         <result column="finished_at" property="finishedAt"/>
@@ -67,12 +77,13 @@
     </resultMap>
 
     <sql id="taskColumns">
-        t.id, t.user_id, t.template_id, t.template_title, t.template_cover_path,
-        t.canvas_width, t.canvas_height, t.client_request_id, t.status, t.current_stage,
-        t.max_step_attempts, t.retry_count, t.resume_count, t.next_retry_at,
+        t.id, t.user_id, t.template_id, t.template_kind, t.template_title, t.template_cover_path,
+        t.render_spec_snapshot, t.canvas_width, t.canvas_height, t.client_request_id, t.status, t.current_stage,
+        t.output_kind, t.max_step_attempts, t.retry_count, t.resume_count, t.next_retry_at,
         t.last_error_code, t.last_error_detail, t.last_error_simulated,
         t.failure_code, t.failure_args, t.failure_detail, t.failure_simulated,
-        t.result_storage_key, t.result_width, t.result_height, t.result_size_bytes,
+        t.result_storage_key, t.result_mime_type, t.result_poster_key,
+        t.result_width, t.result_height, t.result_duration_ms, t.result_size_bytes,
         t.created_at, t.started_at, t.finished_at, t.updated_at, t.row_version
     </sql>
 
@@ -116,13 +127,13 @@
 
     <insert id="insert">
         INSERT INTO task
-          (id, user_id, template_id, template_title, template_cover_path,
-           canvas_width, canvas_height, client_request_id, status, current_stage,
-           max_step_attempts, retry_count, resume_count, failure_simulated)
+          (id, user_id, template_id, template_kind, template_title, template_cover_path,
+           render_spec_snapshot, canvas_width, canvas_height, client_request_id, status, current_stage,
+           output_kind, max_step_attempts, retry_count, resume_count, failure_simulated)
         VALUES
-          (#{id}, #{userId}, #{templateId}, #{templateTitle}, #{templateCoverPath},
-           #{canvasWidth}, #{canvasHeight}, #{clientRequestId}, 'QUEUED', NULL,
-           #{maxStepAttempts}, 0, 0, 0)
+          (#{id}, #{userId}, #{templateId}, #{templateKind}, #{templateTitle}, #{templateCoverPath},
+           #{renderSpecSnapshot}, #{canvasWidth}, #{canvasHeight}, #{clientRequestId}, 'QUEUED', NULL,
+           #{outputKind}, #{maxStepAttempts}, 0, 0, 0)
     </insert>
 
     <insert id="insertMaterial">
@@ -144,13 +155,14 @@
     </sql>
 
     <select id="findPage" resultMap="taskListMap">
-        SELECT t.id, t.template_id,
+        SELECT t.id, t.template_id, t.output_kind,
                COALESCE(tt.title, tm.title, t.template_title) AS display_title,
                t.template_cover_path, t.status, t.current_stage,
                t.failure_code, t.failure_args, t.failure_simulated,
                t.retry_count, t.max_step_attempts, t.resume_count,
                t.next_retry_at, t.last_error_code, t.last_error_simulated,
-               t.result_width, t.result_height,
+               t.result_width, t.result_height, t.result_duration_ms,
+               t.result_mime_type, t.result_poster_key,
                t.created_at, t.updated_at, t.finished_at,
                COALESCE((
                    SELECT s.attempt_count
@@ -213,8 +225,11 @@
            SET status = 'SUCCEEDED',
                current_stage = 'FINALIZE',
                result_storage_key = #{storageKey},
+               result_mime_type = #{mimeType},
+               result_poster_key = #{posterKey},
                result_width = #{width},
                result_height = #{height},
+               result_duration_ms = #{durationMs},
                result_size_bytes = #{sizeBytes},
                failure_code = NULL,
                failure_args = NULL,

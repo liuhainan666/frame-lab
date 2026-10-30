@@ -47,9 +47,14 @@ public class LocalObjectStorage implements ObjectStorage {
 
     @Override
     public StoredObject writeResult(long userId, String taskId, byte[] bytes) {
-        String storageKey = "results/" + userId + "/" + taskId + ".jpg";
+        return writeResult(userId, taskId, bytes, "jpg");
+    }
+
+    @Override
+    public StoredObject writeResult(long userId, String taskId, byte[] bytes, String extension) {
+        String storageKey = resultKey(userId, taskId, extension);
         Path target = resolve(storageKey);
-        Path temp = resolve("tmp/task-" + taskId + "/result-" + UUID.randomUUID() + ".jpg");
+        Path temp = resolve("tmp/task-" + taskId + "/result-" + UUID.randomUUID() + "." + extension);
         try {
             Files.createDirectories(target.getParent());
             Files.createDirectories(temp.getParent());
@@ -64,6 +69,33 @@ public class LocalObjectStorage implements ObjectStorage {
             deleteQuietly(temp);
             throw new StorageException("Unable to persist result", ex);
         }
+    }
+
+    @Override
+    public StoredObject writeResultFile(long userId, String taskId, Path source, String extension) {
+        String storageKey = resultKey(userId, taskId, extension);
+        Path target = resolve(storageKey);
+        Path temp = resolve("tmp/task-" + taskId + "/result-" + UUID.randomUUID() + "." + extension);
+        try {
+            if (!Files.isRegularFile(source)) {
+                throw new StorageException("Result source is missing");
+            }
+            Files.createDirectories(target.getParent());
+            Files.createDirectories(temp.getParent());
+            Files.copy(source, temp, StandardCopyOption.REPLACE_EXISTING);
+            moveAtomically(temp, target);
+            return new StoredObject(storageKey);
+        } catch (IOException ex) {
+            deleteQuietly(temp);
+            throw new StorageException("Unable to persist result file", ex);
+        }
+    }
+
+    private String resultKey(long userId, String taskId, String extension) {
+        if (extension == null || !extension.matches("[a-z0-9]{1,5}")) {
+            throw new StorageException("Invalid result extension");
+        }
+        return "results/" + userId + "/" + taskId + "." + extension;
     }
 
     @Override

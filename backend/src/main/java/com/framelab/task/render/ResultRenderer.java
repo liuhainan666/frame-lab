@@ -70,14 +70,14 @@ public class ResultRenderer {
         graphics.setClip(previousClip);
     }
 
-    private void drawBottomShade(Graphics2D graphics, int width, int height) {
+    void drawBottomShade(Graphics2D graphics, int width, int height) {
         int start = (int) Math.round(height * 0.80);
         graphics.setPaint(new GradientPaint(0, start, new Color(0, 0, 0, 0),
                 0, height, new Color(0, 0, 0, 190)));
         graphics.fillRect(0, start, width, height - start);
     }
 
-    private void drawWatermark(Graphics2D graphics, int width, int height, String taskId) {
+    void drawWatermark(Graphics2D graphics, int width, int height, String taskId) {
         float fontSize = Math.max(14f, height * 0.018f);
         Font font = font().deriveFont(Font.PLAIN, fontSize);
         graphics.setFont(font);
@@ -115,7 +115,7 @@ public class ResultRenderer {
         return font;
     }
 
-    private byte[] encodeJpeg(BufferedImage image) {
+    byte[] encodeJpeg(BufferedImage image) {
         ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
         ImageWriteParam params = writer.getDefaultWriteParam();
         params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);

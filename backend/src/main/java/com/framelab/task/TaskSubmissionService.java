@@ -13,7 +13,9 @@ import com.framelab.common.error.ErrorCode;
 import com.framelab.common.error.FieldErrorView;
 import com.framelab.common.i18n.MessageResolver;
 import com.framelab.task.dto.TaskSubmitRequest;
+import com.framelab.task.render.video.VideoRenderService;
 import com.framelab.template.TemplateRow;
+import com.framelab.template.TemplateKind;
 import com.framelab.template.TemplateService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -27,19 +29,22 @@ public class TaskSubmissionService {
     private final TemplateService templateService;
     private final AssetService assetService;
     private final MessageResolver messages;
+    private final VideoRenderService videoRenderService;
 
     public TaskSubmissionService(TaskMapper taskMapper,
                                  TaskCreator taskCreator,
                                  TaskQueryService taskQueryService,
                                  TemplateService templateService,
                                  AssetService assetService,
-                                 MessageResolver messages) {
+                                 MessageResolver messages,
+                                 VideoRenderService videoRenderService) {
         this.taskMapper = taskMapper;
         this.taskCreator = taskCreator;
         this.taskQueryService = taskQueryService;
         this.templateService = templateService;
         this.assetService = assetService;
         this.messages = messages;
+        this.videoRenderService = videoRenderService;
     }
 
     public TaskSubmissionOutcome submit(long userId, TaskSubmitRequest request) {
@@ -57,6 +62,10 @@ public class TaskSubmissionService {
                 messages.get("validation.templateId.required"));
         List<String> assetIds = validateAssetIds(request.assetIds());
         TemplateRow template = templateService.requirePublished(templateId);
+        templateService.requireRenderSpec(template);
+        if (template.getKind() == TemplateKind.VIDEO && !videoRenderService.isAvailable()) {
+            throw ApiException.of(ErrorCode.VIDEO_UNAVAILABLE);
+        }
 
         if (assetIds.size() != template.getRequiredImageCount()) {
             throw validation("assetIds",

@@ -27,6 +27,7 @@ import com.framelab.task.dto.TaskResultView;
 import com.framelab.task.dto.TaskRetryView;
 import com.framelab.task.dto.TaskStepView;
 import com.framelab.task.dto.TaskSummaryView;
+import com.framelab.template.TemplateKind;
 import com.framelab.template.dto.CanvasView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,7 +162,9 @@ public class TaskQueryService {
         if (row.getStatus() != TaskStatus.SUCCEEDED) {
             return null;
         }
-        return new TaskResultView(true, resultUrl(row.getId()), row.getResultWidth(), row.getResultHeight(), null);
+        return resultView(row.getId(), row.getOutputKind(), row.getResultMimeType(),
+                row.getResultPosterKey(), row.getResultWidth(), row.getResultHeight(),
+                row.getResultDurationMs(), null);
     }
 
     private TaskRetryView retry(TaskRow row, int attemptCount) {
@@ -190,8 +193,24 @@ public class TaskQueryService {
         if (row.getStatus() != TaskStatus.SUCCEEDED) {
             return null;
         }
-        return new TaskResultView(true, resultUrl(row.getId()), row.getResultWidth(), row.getResultHeight(),
-                includeSize ? row.getResultSizeBytes() : null);
+        return resultView(row.getId(), row.getOutputKind(), row.getResultMimeType(),
+                row.getResultPosterKey(), row.getResultWidth(), row.getResultHeight(),
+                row.getResultDurationMs(), includeSize ? row.getResultSizeBytes() : null);
+    }
+
+    private TaskResultView resultView(String taskId,
+                                      TemplateKind outputKind,
+                                      String mimeType,
+                                      String posterKey,
+                                      Integer width,
+                                      Integer height,
+                                      Integer durationMs,
+                                      Long sizeBytes) {
+        String kind = outputKind == null ? "IMAGE" : outputKind.name();
+        String resolvedMime = mimeType == null ? "image/jpeg" : mimeType;
+        String posterUrl = posterKey == null ? null : "/api/tasks/" + taskId + "/result/poster";
+        return new TaskResultView(true, kind, resolvedMime, resultUrl(taskId), posterUrl,
+                width, height, durationMs, sizeBytes);
     }
 
     private TaskStepView stepView(TaskRow task, TaskStepRow step, List<TaskStepAttemptRow> attempts) {

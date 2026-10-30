@@ -4,20 +4,24 @@ import java.time.LocalDateTime;
 
 import com.framelab.task.domain.TaskStage;
 import com.framelab.task.domain.TaskStatus;
+import com.framelab.template.TemplateKind;
 
 public class TaskRow {
 
     private String id;
     private long userId;
     private String templateId;
+    private TemplateKind templateKind;
     private String templateTitle;
     private String displayTitle;
     private String templateCoverPath;
+    private String renderSpecSnapshot;
     private int canvasWidth;
     private int canvasHeight;
     private String clientRequestId;
     private TaskStatus status;
     private TaskStage currentStage;
+    private TemplateKind outputKind;
     private int maxStepAttempts;
     private int retryCount;
     private int resumeCount;
@@ -30,8 +34,11 @@ public class TaskRow {
     private String failureDetail;
     private boolean failureSimulated;
     private String resultStorageKey;
+    private String resultMimeType;
+    private String resultPosterKey;
     private Integer resultWidth;
     private Integer resultHeight;
+    private Integer resultDurationMs;
     private Long resultSizeBytes;
     private LocalDateTime createdAt;
     private LocalDateTime startedAt;
@@ -61,6 +68,30 @@ public class TaskRow {
 
     public void setTemplateId(String templateId) {
         this.templateId = templateId;
+    }
+
+    public TemplateKind getTemplateKind() {
+        return templateKind;
+    }
+
+    public void setTemplateKind(TemplateKind templateKind) {
+        this.templateKind = templateKind;
+    }
+
+    public String getRenderSpecSnapshot() {
+        return renderSpecSnapshot;
+    }
+
+    public void setRenderSpecSnapshot(String renderSpecSnapshot) {
+        this.renderSpecSnapshot = renderSpecSnapshot;
+    }
+
+    public TemplateKind getOutputKind() {
+        return outputKind;
+    }
+
+    public void setOutputKind(TemplateKind outputKind) {
+        this.outputKind = outputKind;
     }
 
     public String getTemplateTitle() {
@@ -221,6 +252,30 @@ public class TaskRow {
 
     public void setResultStorageKey(String resultStorageKey) {
         this.resultStorageKey = resultStorageKey;
+    }
+
+    public String getResultMimeType() {
+        return resultMimeType;
+    }
+
+    public void setResultMimeType(String resultMimeType) {
+        this.resultMimeType = resultMimeType;
+    }
+
+    public String getResultPosterKey() {
+        return resultPosterKey;
+    }
+
+    public void setResultPosterKey(String resultPosterKey) {
+        this.resultPosterKey = resultPosterKey;
+    }
+
+    public Integer getResultDurationMs() {
+        return resultDurationMs;
+    }
+
+    public void setResultDurationMs(Integer resultDurationMs) {
+        this.resultDurationMs = resultDurationMs;
     }
 
     public Integer getResultWidth() {
