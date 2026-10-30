@@ -1,0 +1,47 @@
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# 依赖与构建产物
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+coverage/
+.turbo/
+.vercel/
+target/
+*.class
+
+# 测试与运行产物
+playwright-report/
+test-results/
+*.log
+logs/
+
+# 本地存储与数据库卷
+storage/
+mysql-data/
+data/mysql/
+backup-*.sql
+
+# 临时文件
+tmp/
+.tmp/
+*.tmp
+*.bak
+*.orig
+~$*
+
+# IDE 与操作系统
+.idea/
+*.iml
+.vscode/
+.fleet/
+.qoder/
+.DS_Store
+Thumbs.db
+Desktop.ini
