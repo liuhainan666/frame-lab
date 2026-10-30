@@ -61,7 +61,8 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
 ```
 
 - 生产环境必须追加 `Secure`；本地 HTTP 开发不追加。
-- 刷新令牌不轮换；退出登录时撤销并清除 Cookie。
+- 刷新令牌每次刷新轮换：响应同时下发新 Cookie；旧令牌在 30 秒宽限内重复使用不会撤销家族，超出宽限视为重放并撤销整个家族。
+- 退出登录撤销当前家族并清除 Cookie；退出所有设备撤销该用户全部家族并递增 `token_version`。
 - 前端请求 `/api/auth/*` 时使用 `credentials: "include"`；其他请求不依赖 Cookie。
 - 无 CSRF Token：业务接口靠 Bearer 头鉴权，不随 Cookie 自动携带；刷新与退出仅操作会话，不改变业务数据。前端禁止用 GET 执行任何写操作。
 - 未登录访问受保护接口返回 401；已登录但角色不足返回 403；访问他人资源返回 404。
@@ -107,17 +108,25 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
 ### 2.3 POST `/api/auth/refresh`
 
 - 无请求体；读取 `framelab_rt` Cookie。
-- 成功 `200`：返回与登录相同的 `accessToken / tokenType / expiresIn / user`；不重新下发 Cookie。
-- 失败 `401 REFRESH_TOKEN_INVALID`：Cookie 缺失、过期、已撤销或哈希不存在。
+- 成功 `200`：返回与登录相同的 `accessToken / tokenType / expiresIn / user`，并下发轮换后的新刷新 Cookie；旧令牌立即标记 `ROTATED`。
+- 同一旧令牌在 30 秒宽限内再次刷新仍可成功，用于多标签页并发；超出宽限的重复使用返回 `401` 并撤销整个家族。
+- 失败 `401 REFRESH_TOKEN_INVALID`：Cookie 缺失、过期、已撤销、哈希不存在或命中重放；响应同时清除 Cookie。
 - 前端启动时调用一次；失败即进入匿名态，不弹错误提示。
 
 ### 2.4 POST `/api/auth/logout`
 
 - 无请求体；即使访问令牌已过期也可调用。
-- 撤销当前刷新令牌、清除 Cookie，返回 `204`。
+- 撤销当前刷新令牌所属家族、清除 Cookie，返回 `204`。
 - 不要求携带访问令牌；没有 Cookie 时同样返回 `204`（幂等）。
 
-### 2.5 GET `/api/auth/me`
+### 2.5 POST `/api/auth/logout-all`
+
+- 需要访问令牌。
+- 撤销该用户全部刷新令牌家族、递增 `token_version`、清除 Cookie，返回 `204`。
+- 该用户所有已签发访问令牌在下一个请求立即返回 `401 TOKEN_INVALID`；其他设备需要重新登录。
+- 未认证返回 `401 AUTH_REQUIRED`。
+
+### 2.6 GET `/api/auth/me`
 
 - 需要访问令牌。
 - `200`：`{ "id": 1, "email": "...", "displayName": "...", "role": "USER", "createdAt": "..." }`
@@ -160,7 +169,8 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
 | 401 | `TOKEN_EXPIRED` | 访问令牌过期（前端应尝试刷新一次） |
 | 401 | `TOKEN_INVALID` | 签名错误、签发者/受众不符、格式错误 |
 | 401 | `INVALID_CREDENTIALS` | 登录失败 |
-| 401 | `REFRESH_TOKEN_INVALID` | 刷新令牌无效/过期/撤销 |
+| 401 | `REFRESH_TOKEN_INVALID` | 刷新令牌无效/过期/撤销/重放 |
+| 401 | `TOKEN_INVALID` | 访问令牌无效、用户禁用或令牌版本过期 |
 | 403 | `FORBIDDEN` | 角色不足（如 USER 访问管理端） |
 | 404 | `TEMPLATE_NOT_FOUND` | 模板不存在或已下架 |
 | 404 | `ASSET_NOT_FOUND` | 素材不存在或不属于当前用户 |

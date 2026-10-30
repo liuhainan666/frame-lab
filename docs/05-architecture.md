@@ -233,7 +233,7 @@ POST /api/auth/login
   → UserService.findByEmail（小写归一）
   → BCrypt.matches
   → JwtTokenService 签发 15 分钟访问令牌
-  → RefreshTokenService 生成 32 字节随机串，存 SHA-256
+  → RefreshTokenService 创建 family，生成 32 字节随机串，存 SHA-256 与 family_expires_at
   → Set-Cookie: framelab_rt=...; HttpOnly; SameSite=Lax
   → 200 { accessToken, expiresIn, user }
 ```
@@ -687,7 +687,7 @@ http
 - 关闭 CSRF 的理由见 [04 · 2.1](04-api.md#21-令牌模型)：Bearer 不随 Cookie 自动发送；刷新/退出只涉及会话，不改变业务数据。此决定必须在 README 中说明。
 - `/api/admin/**` 除过滤链外，Controller 再加 `@PreAuthorize("hasRole('ADMIN')")`，形成双重保护；服务层不依赖 Web 注解。
 - 没有 Session、没有表单登录、没有 Basic。
-- JWT 过滤器：校验签名、`iss`、`aud`、`exp`；构造 `AuthUser(id, email, role)` 放入 SecurityContext。无效令牌不抛 500，由 EntryPoint 统一 401。
+- JWT 过滤器：校验签名、`iss`、`aud`、`exp`，再按 `sub` 查询 `app_user.status` 与 `token_version`；只有 `ACTIVE` 且 `ver` 一致才构造 `AuthUser(id, email, role, ver)` 放入 SecurityContext。无效令牌不抛 500，由 EntryPoint 统一 401。
 - 公开接口即使携带过期令牌也应可访问；过滤器只在令牌有效时建立身份，不阻断公开路径。
 
 ### 9.2 令牌与口令
@@ -695,12 +695,15 @@ http
 | 项 | 设计 |
 |---|---|
 | 访问令牌 | HS256；密钥 ≥ 32 字节，来自 `FRAMELAB_JWT_SECRET`；15 分钟；`iss=framelab-api`、`aud=framelab-web` |
-| 刷新令牌 | 32 字节 `SecureRandom` → Base64URL；只存 SHA-256；7 天；撤销即失效 |
+| 刷新令牌 | 32 字节 `SecureRandom` → Base64URL；只存 SHA-256；家族绝对 7 天；每次刷新轮换 |
+| 轮换与重用 | 旧令牌标记 `ROTATED` 并写 `replaced_by_id`；30 秒宽限兜住多标签并发；超宽限重用撤销整个家族 |
 | Cookie | `HttpOnly; SameSite=Lax; Path=/api/auth`；生产 `Secure`；前端 JS 不可读 |
 | 口令 | BCrypt cost 12；最短 8 位（种子口令满足）；登录失败统一文案 |
 | 登录限流 | Caffeine：同一 email+IP 15 分钟失败 5 次 → 429，`Retry-After`；成功清零 |
-| 注销 | 撤销刷新令牌 + 清 Cookie；访问令牌最多再活 15 分钟 |
-| 禁用用户 | 登录拒绝；已签发访问令牌在 15 分钟内可能有效（P0 限制，P1 加 token version） |
+| 访问令牌版本 | JWT `ver` + 每请求主键查询 `token_version`；退出全部递增版本，禁用由状态校验拦截，旧令牌立即 401 |
+| 注销 | 撤销当前家族 + 清 Cookie；其他设备访问令牌最多再活 15 分钟 |
+| 退出全部 | 撤销用户全部家族 + 递增 `token_version` + 清 Cookie；所有设备立即失效 |
+| 禁用用户 | 登录与刷新拒绝；过滤器校验状态，已签发访问令牌下一次请求即 401 |
 
 密钥管理：
 
@@ -787,7 +790,9 @@ AcceptLanguageFilter（OncePerRequestFilter）
 | `MYSQL_PASSWORD` | 无 | 必填；`.env` 提供 |
 | `FRAMELAB_JWT_SECRET` | 无 | ≥ 32 字节；生产必填 |
 | `FRAMELAB_ACCESS_TOKEN_TTL` | `15m` | 访问令牌 |
-| `FRAMELAB_REFRESH_TOKEN_TTL` | `7d` | 刷新令牌 |
+| `FRAMELAB_REFRESH_TOKEN_TTL` | `7d` | 刷新令牌家族绝对有效期 |
+| `FRAMELAB_REFRESH_ROTATION_ENABLED` | `true` | 关闭后回退为不轮换，用于紧急回滚 |
+| `FRAMELAB_REFRESH_ROTATION_GRACE` | `30s` | 轮换后旧令牌的并发宽限 |
 | `FRAMELAB_STORAGE_ROOT` | `./storage` | 素材与结果根目录 |
 | `FRAMELAB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | 逗号分隔 |
 | `FRAMELAB_COOKIE_SECURE` | `false`（本地 dev/docker 演示） | 生产 HTTPS 必须 true |
@@ -823,7 +828,7 @@ spring:
 | ADR-01 | 任务推进机制 | 状态自适应轮询 | 题目不强制实时；实现简单、可测试、无需长连接基础设施 | 延迟 1.5～2.5 s；若要求秒级推送或多端协同，改 SSE |
 | ADR-02 | 任务队列 | MySQL `QUEUED`/`RETRYING` + `SKIP LOCKED` | 持久、可观察、可重试、可续跑、少一个中间件 | 吞吐受数据库限制；任务量增大时引入 MQ |
 | ADR-03 | 文件存储 | 本地目录 + Volume | 满足“服务端可用素材”，部署简单 | 多实例需共享卷；扩容改 S3 |
-| ADR-04 | 鉴权 | JWT + 刷新 Cookie | 无状态、前后端分离、Spring Security 原生支持 | 注销不能立即失效访问令牌；P1 token version |
+| ADR-04 | 鉴权 | JWT + 刷新 Cookie + 令牌版本 | 无状态、前后端分离、Spring Security 原生支持；退出全部/禁用可立即失效 | 每请求多一次主键查询；若压测有瓶颈再加 ≤30s 短缓存 |
 | ADR-05 | Next.js 角色 | 页面 + 客户端数据编排，直连 Java | 满足 R-01 职责边界，避免双重业务实现 | 需处理 CORS、令牌刷新；生产建议同域代理 |
 | ADR-06 | 结果生成 | Java2D 确定性合成 | 结果真实可预览，失败阶段有实际工作 | 不是 AI；版式固定，不评图像质量 |
 | ADR-07 | ORM | MyBatis XML | SQL 可控、易解释、贴近题目要求 | 手写映射；复杂查询比 JPA 多写代码 |
@@ -858,7 +863,7 @@ spring:
 可观测性：
 
 - 日志字段：`traceId`、`userId`、`taskId`、`stage`、`attemptNo`、`status`、`event`、`durationMs`、`failureCode`、`retryCount`、`resumeCount`、`locale`。
-- 事件示例：`task.submitted`、`task.idempotent_replay`、`task.claimed`、`step.started`、`step.succeeded`、`step.failed`、`task.retrying`、`task.recovered`、`task.succeeded`、`task.failed`、`asset.uploaded`。
+- 事件示例：`task.submitted`、`task.idempotent_replay`、`task.claimed`、`step.started`、`step.succeeded`、`step.failed`、`task.retrying`、`task.recovered`、`task.succeeded`、`task.failed`、`asset.uploaded`、`auth.refresh_reuse_detected`。
 - 不记录密码、令牌、Cookie、请求体原图、完整邮箱。
 - `task_step` 与 `task_step_attempt` 的时间戳、状态与错误码是审计轨迹；前端详情可展开尝试历史。
 - Actuator 只开放 `health`、`info`；不公开 env、beans、heapdump。
@@ -869,14 +874,14 @@ P0 明确按**单实例**设计：
 
 - `StartupRecovery` 假定所有 `RUNNING` 任务都属于上一个已退出的进程；多实例会互相回收。
 - 本地存储假定只有当前进程写入。
-- 登录限流与单飞刷新在单进程内有效。
+- 登录限流在单进程内有效；刷新轮换与令牌版本校验依赖共享 MySQL，本身不阻碍多实例。
 - 重试调度依赖数据库时间与单写者，不做分布式锁。
 
 若要扩展为多实例：
 
 1. 任务加 `lease_owner` / `heartbeat_at`，只清理心跳超时的任务；恢复改为租约接管。
 2. 存储迁移到共享卷或 S3；结果读取走对象存储签名 URL 或继续代理。
-3. 刷新令牌与登录限流迁移到共享存储（Redis）；JWT 密钥共享。
+3. 登录限流迁移到共享 Redis；刷新令牌已在 MySQL，可按需迁移；JWT 密钥共享。
 4. 队列可继续用 MySQL（`SKIP LOCKED` 已支持多消费者），或迁移到 MQ。
 5. 前端同域代理，Cookie 域统一。
 6. 翻译表可加缓存，但必须按 locale 失效。

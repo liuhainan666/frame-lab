@@ -44,7 +44,7 @@
 | BE-U-06 | 模板限制 | MIME、单文件大小、素材数按模板校验 |
 | BE-U-07 | 幂等键 | 相同 `clientRequestId` 只产生一个任务；载荷不同触发冲突 |
 | BE-U-08 | JWT | 正常解析；篡改签名、错误 `iss/aud`、过期均拒绝 |
-| BE-U-09 | 刷新令牌 | 只存哈希；撤销/过期不可用；匹配时更新 `last_used_at` |
+| BE-U-09 | 刷新令牌 | 只存哈希；轮换写 `ROTATED`/`replaced_by_id`；撤销/过期不可用；宽限内旧令牌不撤销家族 |
 | BE-U-10 | 登录限流 | 5 次失败后第 6 次 429；成功清零 |
 | BE-U-11 | 模拟配置校验 | 负值、>60000、`remaining>0` 但无阶段、`remaining=0` 却 retryable 均拒绝 |
 | BE-U-12 | 失败注入消费 | 命中原子递减一次；并发只有一个任务消费；`retryable` 正确传递 |
@@ -71,7 +71,7 @@
 | BE-I-01 | 迁移与种子 | 表全部存在；6 分类、10 模板、3 用户、单行模拟配置；6+10 条 en-US 翻译 |
 | BE-I-02 | 登录成功 | 200 + accessToken + Set-Cookie；DB 有令牌哈希 |
 | BE-I-03 | 登录失败 | 401 `INVALID_CREDENTIALS`，响应不区分原因 |
-| BE-I-04 | 刷新与会话 | refresh 200；logout 后 refresh 401；Cookie 属性正确 |
+| BE-I-04 | 刷新与会话 | refresh 200 并下发新 Cookie；logout 后 refresh 401；Cookie 属性正确 |
 | BE-I-05 | 模板列表筛选 | 分类过滤正确；未知分类返回空；下架模板不出现 |
 | BE-I-06 | 模板详情 | 200 字段完整；不存在 404 |
 | BE-I-07 | 上传合法 JPEG/PNG | 201；文件落盘；尺寸/类型正确；非原文件名 |
@@ -102,6 +102,10 @@
 | BE-I-32 | 语言响应 | `Accept-Language: en-US` 返回英文模板/错误/任务消息，`Content-Language: en-US`、`Vary: Accept-Language` |
 | BE-I-33 | 翻译回退 | 删除某模板 en-US 行后，英文请求返回中文基础列/任务快照，不返回空串 |
 | BE-I-34 | CORS 语言头 | 预检允许 `Accept-Language`，暴露 `Content-Language` / `Idempotent-Replay` |
+| BE-I-35 | 刷新轮换 | 旧令牌标记 `ROTATED`、同 family、`replaced_by_id` 指向新令牌；新 Cookie 不同 |
+| BE-I-36 | 宽限与重放 | 30s 内旧令牌可再次刷新且不撤销家族；超宽限重用撤销家族，活跃令牌全部 401 |
+| BE-I-37 | 即时失效 | 禁用用户旧 accessToken 下一次请求 401；logout-all 撤销全部家族并递增 `token_version` |
+| BE-I-38 | 关闭轮换回滚 | `refresh-rotation-enabled=false` 时 refresh 200 且不重设 Cookie；旧令牌可重复使用 |
 
 集成测试注意：
 
@@ -460,6 +464,8 @@ MYSQL_PORT=3306
 FRAMELAB_JWT_SECRET=framelab-demo-secret-change-me-32bytes-minimum
 FRAMELAB_CORS_ALLOWED_ORIGINS=http://localhost:3000
 FRAMELAB_COOKIE_SECURE=false
+FRAMELAB_REFRESH_ROTATION_ENABLED=true
+FRAMELAB_REFRESH_ROTATION_GRACE=30s
 
 # 重试与 worker（默认值可直接省略）
 FRAMELAB_WORKER_THREADS=2
@@ -482,7 +488,7 @@ FRONTEND_PORT=3000
 ### 6.7 初始化顺序
 
 1. MySQL 启动并通过 healthcheck。
-2. backend 启动，Flyway 执行 `V1__schema.sql`、`V2__seed.sql`。
+2. backend 启动，Flyway 执行 `V1__schema.sql`、`V2__seed.sql`、`V3__session_security.sql`。
 3. backend healthcheck 通过。
 4. frontend 启动，页面可访问。
 5. 浏览器访问 3000，登录种子账号。
@@ -716,8 +722,8 @@ docker compose cp backend:/app/storage ./storage-backup
 2. **本地存储**：不支持多节点共享；扩容需对象存储或共享卷。
 3. **续跑只在步骤边界**：中断步骤整步重跑，不保留步骤内部进度；已成功步骤不重跑。
 4. **重试有上限**：仅可重试失败码；默认每步 3 次尝试、2s/4s 退避、封顶 30s；不做无限重试或人工重试任务。
-5. **刷新令牌不轮换**：7 天有效，退出即撤销；轮换/重用检测为 P1。
-6. **访问令牌注销延迟**：退出后最多 15 分钟内仍有效。
+5. **刷新令牌为家族绝对 7 天**：轮换不延长家族寿命；7 天后必须重新登录。
+6. **普通退出不即时吊销其他设备**：只撤销当前家族，其他设备访问令牌最多再存活 15 分钟；需要立即吊销全部时使用“退出所有设备”。
 7. **轮询而非推送**：状态最多延迟约 1.5～2.5 秒。
 8. **无自助注册**：仅种子账号。
 9. **无任务删除/重做/下载**：题目不要求，界面不提供。

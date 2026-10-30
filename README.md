@@ -124,6 +124,8 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 | `FRAMELAB_JWT_SECRET` | 演示值 | 至少 32 字节；生产 profile 必须替换 |
 | `FRAMELAB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | 允许的前端源，逗号分隔 |
 | `FRAMELAB_COOKIE_SECURE` | `false` | 生产 HTTPS 设为 `true` |
+| `FRAMELAB_REFRESH_ROTATION_ENABLED` | `true` | 刷新令牌轮换；紧急回滚时可关闭 |
+| `FRAMELAB_REFRESH_ROTATION_GRACE` | `30s` | 轮换后旧令牌的并发宽限 |
 | `FRAMELAB_WORKER_THREADS` | `2` | 任务 worker 并发数 |
 | `FRAMELAB_WORKER_POLL_MS` | `500` | 认领轮询间隔 |
 | `FRAMELAB_RETRY_MAX_STEP_ATTEMPTS` | `3` | 每步尝试上限快照 |
@@ -136,7 +138,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 
 ## 6. 数据库
 
-- 迁移：`V1__schema.sql`（用户、模板、素材、任务、步骤、尝试、模拟配置）、`V2__seed.sql`（演示账号、分类、模板、模拟默认值）。
+- 迁移：`V1__schema.sql`（用户、模板、素材、任务、步骤、尝试、模拟配置）、`V2__seed.sql`（演示账号、分类、模板、模拟默认值）、`V3__session_security.sql`（令牌版本、刷新家族、轮换链）。
 - 启动时 Flyway 自动执行；不需要手工建表或导入 SQL。
 - 重置演示数据（会删除任务、素材与结果）：
 
@@ -154,8 +156,9 @@ docker compose up --build
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/auth/login` | 邮箱密码登录，返回 accessToken，刷新 Cookie |
-| POST | `/api/auth/refresh` | 刷新访问令牌（单飞、轮换） |
-| POST | `/api/auth/logout` | 撤销刷新令牌 |
+| POST | `/api/auth/refresh` | 轮换刷新令牌并换取新访问令牌 |
+| POST | `/api/auth/logout` | 撤销当前刷新令牌家族 |
+| POST | `/api/auth/logout-all` | 撤销全部设备并立即使访问令牌失效 |
 | GET | `/api/template-categories` | 分类，公开 |
 | GET | `/api/templates` / `/api/templates/{id}` | 模板库与详情，公开 |
 | POST | `/api/assets` | 上传 JPEG/PNG，私有 |
@@ -196,7 +199,8 @@ curl -s -X PUT http://localhost:8080/api/admin/simulation \
 
 ## 9. 身份与安全
 
-- 访问令牌只在浏览器内存，以 `Authorization: Bearer` 发送；刷新令牌为 HttpOnly Cookie（`Path=/api/auth; SameSite=Lax`）。
+- 访问令牌只在浏览器内存，以 `Authorization: Bearer` 发送；刷新令牌为 HttpOnly Cookie（`Path=/api/auth; SameSite=Lax`），每次刷新轮换，家族绝对 7 天。
+- 30 秒宽限兜住多标签并发刷新；超出宽限的旧令牌重用会撤销整个家族。账号弹层提供“退出所有设备”，递增令牌版本并立即吊销全部访问令牌。
 - 任务、素材、结果均按 `user_id` 查询；他人资源统一返回 `404`，不泄露存在性。
 - 登录失败 5 次/15 分钟触发 `429`；口令 BCrypt cost 12；错误文案不区分账号是否存在。
 - CORS 白名单、CSP、`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` 已配置。
@@ -206,7 +210,7 @@ curl -s -X PUT http://localhost:8080/api/admin/simulation \
 ## 10. 测试与 CI
 
 ```bash
-# 后端：单元 + Testcontainers MySQL 集成测试（97 个用例）
+# 后端：单元 + Testcontainers MySQL 集成测试（102 个用例）
 cd backend && ./mvnw verify
 
 # 前端：类型、Lint、组件测试、生产构建（45 个用例）
@@ -225,12 +229,12 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ## 12. 完成度与已知限制
 
-已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README。
+已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)）。
 
 已知限制：
 
-- 单实例部署：登录限流与单飞刷新在进程内生效；水平扩展需共享 Redis 与对象存储。
-- 账号禁用会阻止新登录与刷新；已签发的 accessToken 在剩余有效期（≤15 分钟）内仍可能被接受，未实现全局访问令牌吊销或管理端禁用界面。
+- 单实例部署：登录限流在进程内生效；刷新轮换与令牌版本校验依赖共享 MySQL，本身可跨实例，但任务恢复与本地存储仍需单实例。
+- 账号禁用会阻止新登录、刷新与已签发访问令牌（过滤器校验状态）；尚未提供管理端禁用界面。普通退出只撤销当前设备，其他设备最多再存活 15 分钟；账号弹层可用“退出所有设备”立即吊销全部。
 - 本地卷存储：结果合成使用 Java2D 与自托管 Inter 字体，未接入 S3/CDN。
 - 不提供注册、找回密码、删除账号、任务删除/重做、结果下载与视频生成。
 - Flyway 对 MySQL 8.4 仍输出“支持未测试”警告；迁移已在 8.4 上验证。
@@ -245,7 +249,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 - 先以 `docs/` 建立需求、领域、API、视觉、测试与提交规范，再按 M0～M8 里程碑实施；每个提交按模块与层次拆分。
 - 提供给助手的上下文包括需求文档、验收清单、参考截图与既有代码约束；代码、迁移、测试与文档同批更新。
-- 验证不只依赖生成结果：后端 97 个测试、前端 45 个测试、生产构建、真实浏览器五档宽度、断网/重启/切账号/失败注入均实际执行，并归档于 [docs/evidence/m7-acceptance.md](docs/evidence/m7-acceptance.md)。
+- 验证不只依赖生成结果：后端 102 个测试、前端 47 个测试、生产构建、真实浏览器五档宽度、断网/重启/切账号/失败注入均实际执行，并归档于 [docs/evidence/m7-acceptance.md](docs/evidence/m7-acceptance.md)。
 - 一个具体修正：M7 视觉复核发现任务卡状态位于左上角、模板封面为抽象渐变，与硬约束不符；改为状态居中并替换为照片封面后重新截图。安全巡检发现缺少 CSP，已在 `next.config.ts` 补齐并在浏览器验证。
 
 ## 14. 第三方资源
@@ -261,7 +265,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] 前后端完整源码
 - [x] 数据库结构与种子
 - [x] 五个业务页面与视觉对齐
-- [x] 后端 97 / 前端 45 测试
+- [x] 后端 102 / 前端 47 测试
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
 - [x] 演示脚本、AI 使用说明、已知限制
