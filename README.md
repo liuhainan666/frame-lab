@@ -243,7 +243,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ## 12. 完成度与已知限制
 
-已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；六个页面（含个人设置）、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
+已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
 
 已知限制：
 
@@ -265,7 +265,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 - 先以 `docs/` 建立需求、领域、API、视觉、测试与提交规范，再按 M0～M8 里程碑实施；X5 模板特效/视频沿用同一流程并单独留证。
 - 提供给助手的上下文包括需求文档、验收清单、参考截图与既有代码约束；代码、迁移、测试与文档同批更新。
-- 验证不只依赖生成结果：后端 125 个测试（含 ffmpeg 视频用例）、前端 54 个测试、生产构建、真实浏览器五档宽度、断网/重启/切账号/失败注入均实际执行，并归档于 [docs/evidence](docs/evidence/)。
+- 验证不只依赖生成结果：后端 125 个测试（含 ffmpeg 视频用例）、前端 55 个测试、生产构建、真实浏览器五档宽度、断网/重启/切账号/失败注入均实际执行，并归档于 [docs/evidence](docs/evidence/)。
 - 一个具体修正：M7 视觉复核发现任务卡状态位于左上角、模板封面为抽象渐变，与硬约束不符；改为状态居中并替换为照片封面后重新截图。安全巡检发现缺少 CSP，已在 `next.config.ts` 补齐并在浏览器验证。
 - X5 修正：浏览器实测视频无法播放，控制台显示 CSP 拦截 blob；补 `media-src 'self' blob:` 后 `<video>` readyState=4。抽帧发现标题为缺字方框，原因是 `Locale.ENGLISH` 不命中 `en_US` 资源包，改为 `Locale.US` 后恢复 ASCII 文字。
 
@@ -283,8 +283,8 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] 设计与验收文档
 - [x] 前后端完整源码
 - [x] 数据库结构与种子
-- [x] 六个业务页面与视觉对齐
-- [x] 后端 125 / 前端 54 测试
+- [x] 五个业务页面与视觉对齐
+- [x] 后端 125 / 前端 55 测试
 - [x] X5 图片调色、轻人像与 15 秒视频模板（含 Range/封面播放）
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
