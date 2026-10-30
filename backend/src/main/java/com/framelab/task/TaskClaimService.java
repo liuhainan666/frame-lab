@@ -49,7 +49,7 @@ public class TaskClaimService {
         TaskStepAttemptRow attempt = new TaskStepAttemptRow();
         attempt.setTaskId(taskId);
         attempt.setStepId(next.getId());
-        attempt.setAttemptNo(next.getAttemptCount() + 1);
+        attempt.setAttemptNo(taskStepAttemptMapper.maxAttemptNo(next.getId()) + 1);
         taskStepAttemptMapper.insert(attempt);
         return new ClaimedStep(taskId, task.getUserId(), next.getId(), next.getSeq(), next.getStage());
     }
