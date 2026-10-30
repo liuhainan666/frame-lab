@@ -43,6 +43,23 @@ docker compose -p framelab-acceptance --env-file acceptance.env up --build -d
 
 任务证据：成功 `1dd837a7-c8d2-4f32-8536-6a64ccc81001`；失败 `cf575aad-b887-4276-ace8-d50cac0f8cea`。
 
+## 2.1 容器全量链路（21/21）
+
+在同一个空卷项目内继续执行完整可靠性演示：
+
+| 场景 | 结果 | 任务 |
+|---|---|---|
+| 成功 + 结果 | 三步全成功，结果 JPEG | `b85278ee-b49c-4194-b8df-5708bd87e680` |
+| 永久失败 | GENERATE 失败、FINALIZE SKIPPED、无 RETRYING | `04c67907-54e0-4e99-92b9-06dd2896aa02` |
+| 可重试两次 | 生成尝试 `FAILED, FAILED, SUCCEEDED`，`retryCount=2` | `1fcbe4f2-b57a-45aa-ab8a-eb613dafa7f1` |
+| 多任务 | 采样 2 RUNNING + 1 QUEUED，3 个任务独立成功 | — |
+| 幂等 | 同键重放 200 + `Idempotent-Replay: true` | 成功任务 |
+| i18n | en-US 返回英文模板标题 | — |
+| backend 容器重启续跑 | 强杀生成阶段任务后重启：`resumeCount=1`，素材检查不重跑，生成 `INTERRUPTED → SUCCEEDED`，`retryCount=0` | `d8984626-5f23-4487-ab24-4ccbbfdfad67` |
+| 整栈 `down` + `up` | 数据卷保留：成功任务、历史数量与结果均仍可读 | — |
+
+执行命令：`docker compose restart backend` 后等待 healthy；再执行 `docker compose down`（不带 `-v`）与 `up -d`，三服务重新 healthy。共 12 项建立、6 项续跑、3 项持久化检查，全部通过。
+
 ## 3. 生产前端 UI
 
 - 以 `demo@framelab.local` 在 `http://localhost:3300` 登录成功，回到 `/history`。
@@ -58,11 +75,11 @@ docker compose -p framelab-acceptance --env-file acceptance.env up --build -d
 | `pnpm lint` | 通过 |
 | `pnpm test` | 13 files / 45 tests |
 | `pnpm build` | 通过 |
-| `docker compose up --build` | 三服务 healthy，15/15 验收通过 |
+| `docker compose up --build` | 三服务 healthy；15/15 基础 + 21/21 全量链路通过 |
 
 ## 5. 收尾
 
-验收后执行 `docker compose -p framelab-acceptance down -v`，删除独立容器、网络与卷；本地演示环境未受影响。
+两次验收后均执行 `docker compose -p framelab-acceptance down -v`，删除独立容器、网络与卷；本地演示环境未受影响。整栈重启验证使用 `down`（不带 `-v`）与 `up -d`，随后再清理。
 
 ## 6. 未在远程执行的事项
 

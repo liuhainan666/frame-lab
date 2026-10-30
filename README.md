@@ -264,4 +264,4 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
 - [x] 演示脚本、AI 使用说明、已知限制
-- [x] 验收 commit：`dc06422`（干净环境 15/15 通过）
+- [x] 验收 commit：`dc06422`（干净环境 15/15 + 全量链路 21/21 通过）
