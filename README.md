@@ -1,16 +1,48 @@
-# FrameLab · 素材制作平台
+<div align="center">
 
-深色画廊风格的素材制作网站：浏览模板、上传照片、提交三步异步制作任务，在处理期间继续浏览，最后查看个人历史与结果。图片模板带预设调色与轻人像，视频模板把照片渲染为 15 秒 MP4。前端 Next.js，后端 Spring Boot 3 + Spring Security + MyBatis，MySQL 8.4 持久化，视频使用 ffmpeg。
+**简体中文** ｜ [English](README.en.md)
 
-[![FrameLab 视频演示：模板库、上传与结果预览](docs/assets/demo/framelab-demo-poster.jpg)](docs/assets/demo/framelab-demo.mp4)
+# FrameLab
 
-> ▶ 点击封面观看 1 分 38 秒演示：模板筛选、照片上传、三步任务、结果预览与中英文切换。GitHub 不内嵌视频，点击封面打开 MP4。
+**素材制作平台 —— 从模板到成片的一站式创作**
 
-- 验收 tag：`v1.0.1-submission`（M8 干净环境证据见 [docs/evidence/m8-acceptance.md](docs/evidence/m8-acceptance.md)；X5 模板特效/视频与个人设置已并入最终版本）
-- 视觉证据：[docs/assets/visual](docs/assets/visual)
-- 设计口径：[docs/README.md](docs/README.md)，开发与验收以文档为准
+浏览模板 · 上传照片 · 异步渲染 · 查看历史
 
-## 1. 技术版本
+![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-6DB33F?logo=springboot&logoColor=white)
+![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.4-4479A1?logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-125%20backend%20%2F%2055%20frontend-3FB950)
+
+</div>
+
+---
+
+[![FrameLab 演示视频](docs/assets/demo/framelab-demo-poster.jpg)](docs/assets/demo/framelab-demo.mp4)
+
+<p align="center"><sub>点击封面观看 1 分 38 秒演示：模板筛选、照片上传、三步任务、结果预览与中英文切换</sub></p>
+
+> **验收版本** `v1.0.1-submission` ｜ [干净环境验收证据](docs/evidence/m8-acceptance.md) ｜ [视觉证据](docs/assets/visual) ｜ [设计文档](docs/README.md)
+
+**目录**　[项目概览](#项目概览) · [技术栈](#技术栈) · [系统架构](#系统架构) · [快速开始](#快速开始) · [配置](#配置) · [数据库](#数据库) · [接口](#接口) · [身份与安全](#身份与安全) · [测试与 CI](#测试与-ci) · [部署与运维](#部署与运维) · [已知限制](#完成度与已知限制) · [交付清单](#交付清单)
+
+## 项目概览
+
+深色画廊风格的素材制作网站。用户浏览模板、上传照片、提交三步异步制作任务，在处理期间继续浏览，最后查看个人历史与结果。图片模板带预设调色与轻人像，视频模板把照片渲染为 15 秒 MP4。
+
+| 能力 | 说明 |
+|---|---|
+| 模板库 | 6 个分类、13 个模板（12 图片 + 1 视频），公开浏览与筛选 |
+| 三步流水线 | `MATERIAL_CHECK → GENERATE → FINALIZE`，逐阶段进度与耗时可见 |
+| 可靠执行 | 受理幂等、失败自动重试与退避、服务重启断点续跑 |
+| 结果交付 | 图片 JPEG、视频 MP4（支持 Range 拖动）与封面 |
+| 账号安全 | 内存访问令牌、刷新令牌轮换、退出所有设备即时吊销 |
+| 双语界面 | 中英文即时切换，刷新后保持 |
+
+## 技术栈
 
 | 层 | 选型 | 实际版本 |
 |---|---|---|
@@ -27,36 +59,41 @@
 | 运行时 | Node / pnpm | 容器 Node 22，本机 Node 24 / pnpm 12.16.1 |
 | 交付 | Docker Compose / GitHub Actions | Compose v2+；workflow 见 `.github/workflows/ci.yml` |
 
-## 2. 项目结构
+## 系统架构
 
-```text
-.
-├─ backend/                     Spring Boot API、worker、Java2D/ffmpeg 渲染
-│  ├─ src/main/java/com/framelab/
-│  ├─ src/main/resources/db/migration/   V1 表结构、V2 种子、V3 会话安全、V4 模板/任务扩展、V5/V6 模板种子
-│  ├─ src/main/resources/templates/      LUT、视频音乐、渲染资源
-│  ├─ src/main/resources/static/assets/  模板封面
-│  ├─ src/main/resources/mapper/         MyBatis XML
-│  ├─ src/test/                         单元 + Testcontainers 集成测试
-│  ├─ Dockerfile / .dockerignore
-│  └─ pom.xml / mvnw
-├─ frontend/                    Next.js App Router
-│  ├─ src/app/                  页面与路由
-│  ├─ src/features/             auth / templates / studio / tasks / account
-│  ├─ src/i18n/                 zh-CN / en-US 词典与 Provider
-│  ├─ src/shared/               API 客户端、基础 UI、工具
-│  ├─ Dockerfile / .dockerignore
-│  └─ package.json / pnpm-lock.yaml
-├─ docs/                        设计、接口、测试、验收与证据
-├─ .github/workflows/ci.yml
-├─ docker-compose.yml
-├─ .env.example
-└─ README.md
+```mermaid
+flowchart LR
+    B["浏览器"] --> FE["Next.js 15 前端"]
+    FE -->|"REST + JWT"| API["Spring Boot 3.4 API"]
+    API --> DB[("MySQL 8.4")]
+    API --> W["任务 Worker"]
+    W --> DB
+    W --> ST[("私有存储卷")]
+    W --> R["Java2D / LUT / ffmpeg"]
+    ST -->|"结果与封面"| API
 ```
 
-## 3. 快速开始
+- 访问令牌只存在浏览器内存，以 `Authorization: Bearer` 发送；刷新令牌为 HttpOnly Cookie。
+- 素材与结果保存在私有卷，静态目录只公开模板封面；结果不可公开猜测。
+- 任务状态机：`QUEUED → RUNNING → RETRYING / SUCCEEDED / FAILED`，终态不可逆；步骤失败后后续步骤标记 `SKIPPED`。
+- 服务重启将 `RUNNING` 恢复为 `QUEUED`（`resumeCount+1`），已完成步骤不重跑，中断尝试标记 `INTERRUPTED`。
 
-要求：Docker Desktop / Engine + Compose v2。视频模板需要 ffmpeg，镜像内已安装；本机开发需自行安装 `ffmpeg`/`ffprobe`（或在 `.env` 关闭 `FRAMELAB_FFMPEG_ENABLED`，此时仅视频模板不可用）。
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED
+    QUEUED --> RUNNING
+    RUNNING --> SUCCEEDED
+    RUNNING --> RETRYING
+    RETRYING --> RUNNING
+    RUNNING --> FAILED
+    RETRYING --> FAILED
+    SUCCEEDED --> [*]
+    FAILED --> [*]
+```
+
+## 快速开始
+
+要求：Docker Desktop / Engine + Compose v2。视频模板需要 ffmpeg，镜像内已安装；本机开发需自行安装 `ffmpeg` / `ffprobe`（或在 `.env` 关闭 `FRAMELAB_FFMPEG_ENABLED`，此时仅视频模板不可用）。
 
 ```bash
 cp .env.example .env
@@ -65,9 +102,11 @@ docker compose up --build
 
 启动顺序：MySQL 健康 → 后端 Flyway 迁移/种子 → 后端健康 → 前端。浏览器访问：
 
-- 前端：`http://localhost:3000`
-- API：`http://localhost:8080`
-- 健康检查：`http://localhost:8080/actuator/health`
+| 入口 | 地址 |
+|---|---|
+| 前端 | `http://localhost:3000` |
+| API | `http://localhost:8080` |
+| 健康检查 | `http://localhost:8080/actuator/health` |
 
 种子账号（仅演示）：
 
@@ -77,9 +116,9 @@ docker compose up --build
 | `demo2@framelab.local` | `Demo1234!` | USER |
 | `admin@framelab.local` | `Admin1234!` | ADMIN |
 
-`.env` 为用户本地文件，不入库。生产部署必须替换 JWT 密钥、数据库口令并启用 HTTPS 与 `FRAMELAB_COOKIE_SECURE=true`。
+`.env` 为用户本地文件，不入库。生产部署必须替换 JWT 密钥、数据库口令，并启用 HTTPS 与 `FRAMELAB_COOKIE_SECURE=true`。
 
-### 3.1 端口被占用时
+### 端口被占用时
 
 ```bash
 # 前端宿主端口（默认 3000）
@@ -91,37 +130,32 @@ MYSQL_PORT=13306
 
 同时把 `FRAMELAB_CORS_ALLOWED_ORIGINS` 改成实际前端地址（例如 `http://localhost:3300`）。`NEXT_PUBLIC_BACKEND_URL` 在构建时内联，修改后需 `docker compose build frontend`。
 
-## 4. 本地开发
-
-### 4.1 只启动 MySQL
+### 本地开发
 
 ```bash
+# 只启动 MySQL
 docker compose up -d mysql
-```
 
-### 4.2 后端
-
-```bash
+# 后端（按 .env 设置 MYSQL_HOST/MYSQL_PORT/MYSQL_USER/MYSQL_PASSWORD/FRAMELAB_JWT_SECRET）
 cd backend
-# 按 .env 设置 MYSQL_HOST/MYSQL_PORT/MYSQL_USER/MYSQL_PASSWORD/FRAMELAB_JWT_SECRET
 ./mvnw spring-boot:run
-```
 
-Windows 需设置 `JAVA_HOME` 指向 JDK 21；本仓库测试使用 `./mvnw verify`。视频模板还要求本机 `ffmpeg -version` 可用（Windows 可 `winget install Gyan.FFmpeg` 或使用镜像）。
-
-### 4.3 前端
-
-```bash
+# 前端
 cd frontend
 pnpm install --frozen-lockfile
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 ```
 
+Windows 需设置 `JAVA_HOME` 指向 JDK 21；测试使用 `./mvnw verify`。视频模板还要求本机 `ffmpeg -version` 可用（Windows 可 `winget install Gyan.FFmpeg` 或使用镜像）。
+
 默认 `http://localhost:3000`。`dev` profile 已允许 `http://localhost:*` / `http://127.0.0.1:*`，Next.js 自动切换端口也能登录；`docker` 与生产 profile 仍只接受 `FRAMELAB_CORS_ALLOWED_ORIGINS` 中的精确来源。
 
-## 5. 配置
+## 配置
 
 根目录 `.env.example` 列出全部变量：
+
+<details>
+<summary>展开环境变量表</summary>
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
@@ -148,14 +182,17 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 | `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:8080` | 浏览器访问 API 的地址，构建时内联 |
 | `FRONTEND_PORT` | `3000` | Compose 前端宿主端口 |
 
+</details>
+
 后端还支持 `FRAMELAB_STORAGE_ROOT`（容器内 `/app/storage`）与 `SPRING_PROFILES_ACTIVE`。
 
-## 6. 数据库
+## 数据库
 
 - 迁移：`V1__schema.sql`（用户、模板、素材、任务、步骤、尝试、模拟配置）、`V2__seed.sql`（演示账号、分类、模板、模拟默认值）、`V3__session_security.sql`（令牌版本、刷新家族、轮换链）、`V4__template_effects_video.sql`（模板类型/spec、任务快照、视频结果字段）、`V5__template_effect_seed.sql`（图片效果与 2 个新模板）、`V6__video_template_seed.sql`（15 秒视频模板）。
 - 最终种子：6 个分类、13 个模板（12 图片 + 1 视频）、3 个演示账号、单行模拟配置。
-- 启动时 Flyway 自动执行；不需要手工建表或导入 SQL。
-- 重置演示数据（会删除任务、素材与结果）：
+- 启动时 Flyway 自动执行，不需要手工建表或导入 SQL。
+
+重置演示数据（会删除任务、素材与结果）：
 
 ```bash
 docker compose down -v
@@ -164,9 +201,9 @@ docker compose up --build
 
 > `down -v` 会删除 `mysql-data` 与 `storage` 卷，执行前确认没有需要保留的数据。
 
-## 7. 接口与状态
+## 接口
 
-主要接口（完整契约见 [docs/04-api.md](docs/04-api.md)）：
+完整契约见 [docs/04-api.md](docs/04-api.md)。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -184,9 +221,43 @@ docker compose up --build
 | GET | `/api/tasks/{id}/result/poster` | 鉴权读取视频封面 JPEG |
 | GET/PUT | `/api/admin/simulation` | 管理员配置耗时与失败注入 |
 
-任务状态：`QUEUED → RUNNING → RETRYING / SUCCEEDED / FAILED`。步骤固定 `MATERIAL_CHECK → GENERATE → FINALIZE`，失败后后续步骤 `SKIPPED`，终态不可逆。服务重启将 `RUNNING` 恢复为 `QUEUED`（`resumeCount+1`），已完成步骤不重跑，中断尝试标记 `INTERRUPTED`。
+## 身份与安全
 
-## 8. 演示
+- 访问令牌只在浏览器内存，以 `Authorization: Bearer` 发送；刷新令牌为 HttpOnly Cookie（`Path=/api/auth; SameSite=Lax`），每次刷新轮换，家族绝对 7 天。
+- 30 秒宽限兜住多标签并发刷新；超出宽限的旧令牌重用会撤销整个家族。账号弹层提供“退出所有设备”，递增令牌版本并立即吊销全部访问令牌。
+- 任务、素材、结果均按 `user_id` 查询；他人资源统一返回 `404`，不泄露存在性。
+- 登录失败 5 次/15 分钟触发 `429`；口令 BCrypt cost 12；错误文案不区分账号是否存在。
+- CORS 白名单、CSP、`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` 已配置。
+- 详细安全设计见 [docs/05-architecture.md](docs/05-architecture.md)。
+
+## 测试与 CI
+
+```bash
+# 后端：单元 + Testcontainers MySQL 集成测试（125 个用例；视频用例无 ffmpeg 时跳过）
+cd backend && ./mvnw verify
+
+# 前端：类型、Lint、组件测试、生产构建（55 个用例）
+cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
+```
+
+覆盖登录/刷新/隔离、素材校验、三步流水线、受理幂等（含并发）、自动重试与退避、耗尽、终态失败、启动恢复与续跑、错误/i18n、LUT/调色/轻人像、视频渲染/Range/poster、前端多任务/查询异常/上传/筛选/详情/视频播放。GitHub Actions 在 push 与 PR 触发前后端两个 job；容器构建不跑测试（CI 已跑）。
+
+## 部署与运维
+
+- 一键启动：`docker compose up --build -d`；健康检查覆盖 MySQL、后端、前端。
+- 持久化：`mysql-data` 与 `storage` 两个命名卷；`docker compose down` 不删除卷。
+- 备份：
+
+```bash
+docker run --rm -v framelab_mysql-data:/data -v $PWD:/backup alpine tar czf /backup/mysql-data.tgz -C /data .
+```
+
+`storage` 同理。回滚时保留上一版镜像 tag，`docker compose down` 后切回旧镜像/提交并 `up -d`；数据库迁移一经提交不修改，修复用新版本。故障排查与生产注意见 [docs/07-testing-ci-deploy.md](docs/07-testing-ci-deploy.md)。
+
+## 功能演示
+
+<details>
+<summary>展开完整演示脚本（13 步）</summary>
 
 1. 未登录浏览模板与分类；打开模板详情点击制作，跳登录并回原页。
 2. `demo` 登录，上传 2 张 JPG/PNG，观察逐文件进度；尝试第 3 张或超 5 MB 文件应被拒绝。
@@ -202,7 +273,9 @@ docker compose up --build
 12. 打开“黄金时刻”上传 2 张照片，结果明显暖调/琥珀；换“夏日海岸”可见冷调差异。
 13. 打开“城市漫游”上传 5 张照片，点击“生成视频”；完成后结果弹层可播放、可拖动进度，卡片显示 `15 秒` 与封面。
 
-管理员注入示例：
+</details>
+
+管理员故障注入示例：
 
 ```bash
 ADMIN_TOKEN=$(curl -s http://localhost:8080/api/auth/login \
@@ -215,41 +288,11 @@ curl -s -X PUT http://localhost:8080/api/admin/simulation \
   -d '{"delays":{"materialCheckMs":800,"generateMs":3000,"finalizeMs":1200},"failure":{"stage":"GENERATE","remaining":1,"retryable":false}}'
 ```
 
-## 9. 身份与安全
+## 完成度与已知限制
 
-- 访问令牌只在浏览器内存，以 `Authorization: Bearer` 发送；刷新令牌为 HttpOnly Cookie（`Path=/api/auth; SameSite=Lax`），每次刷新轮换，家族绝对 7 天。
-- 30 秒宽限兜住多标签并发刷新；超出宽限的旧令牌重用会撤销整个家族。账号弹层提供“退出所有设备”，递增令牌版本并立即吊销全部访问令牌。
-- 任务、素材、结果均按 `user_id` 查询；他人资源统一返回 `404`，不泄露存在性。
-- 登录失败 5 次/15 分钟触发 `429`；口令 BCrypt cost 12；错误文案不区分账号是否存在。
-- CORS 白名单、CSP、`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` 已配置。
-- 素材与结果保存在私有卷，静态目录只公开模板封面；结果不可公开猜测。
-- 详细安全设计见 [docs/05-architecture.md](docs/05-architecture.md)。
+**已完成**：R-01～R-14 功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
 
-## 10. 测试与 CI
-
-```bash
-# 后端：单元 + Testcontainers MySQL 集成测试（125 个用例；视频用例无 ffmpeg 时跳过）
-cd backend && ./mvnw verify
-
-# 前端：类型、Lint、组件测试、生产构建（54 个用例）
-cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
-```
-
-覆盖登录/刷新/隔离、素材校验、三步流水线、受理幂等（含并发）、自动重试与退避、耗尽、终态失败、启动恢复与续跑、错误/i18n、LUT/调色/轻人像、视频渲染/Range/poster、前端多任务/查询异常/上传/筛选/详情/视频播放。GitHub Actions 在 push 与 PR 触发前后端两个 job；容器构建不跑测试（CI 已跑）。
-
-## 11. 部署、备份与回滚
-
-- 一键启动：`docker compose up --build -d`；健康检查覆盖 MySQL、后端、前端。
-- 持久化：`mysql-data` 与 `storage` 两个命名卷；`docker compose down` 不删除卷。
-- 备份：`docker run --rm -v framelab_mysql-data:/data -v $PWD:/backup alpine tar czf /backup/mysql-data.tgz -C /data .`；`storage` 同理。
-- 回滚：保留上一版镜像 tag，`docker compose down` 后切回旧镜像/提交并 `up -d`；数据库迁移一经提交不修改，修复用新版本。
-- 故障排查与生产注意见 [docs/07-testing-ci-deploy.md](docs/07-testing-ci-deploy.md)。
-
-## 12. 完成度与已知限制
-
-已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
-
-已知限制：
+**已知限制**
 
 - 单实例部署：登录限流在进程内生效；刷新轮换与令牌版本校验依赖共享 MySQL，本身可跨实例，但任务恢复、本地存储与 ffmpeg 并发信号量仍需单实例。
 - 账号禁用会阻止新登录、刷新与已签发访问令牌（过滤器校验状态）；尚未提供管理端禁用界面。普通退出只撤销当前设备，其他设备最多再存活 15 分钟；账号弹层可用“退出所有设备”立即吊销全部。
@@ -261,11 +304,9 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - 模拟控制为全局单例，仅用于演示；生产不应暴露管理端。
 - 生产需在反向代理配置 HTTPS/HSTS，并限制 3000/8080 暴露。
 
-实际投入：待作者填写（设计 __ h、后端 __ h、前端 __ h、测试与 CI __ h、文档 __ h）；提交前请替换本行。
+## AI 使用说明
 
-## 13. AI 使用说明
-
-本项目在 AI 编程助手（Qoder）辅助下完成，流程如下：
+本项目在 AI 编程助手（Qoder）辅助下完成：
 
 - 先以 `docs/` 建立需求、领域、API、视觉、测试与提交规范，再按 M0～M8 里程碑实施；X5 模板特效/视频沿用同一流程并单独留证。
 - 提供给助手的上下文包括需求文档、验收清单、参考截图与既有代码约束；代码、迁移、测试与文档同批更新。
@@ -273,7 +314,9 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - 一个具体修正：M7 视觉复核发现任务卡状态位于左上角、模板封面为抽象渐变，与硬约束不符；改为状态居中并替换为照片封面后重新截图。安全巡检发现缺少 CSP，已在 `next.config.ts` 补齐并在浏览器验证。
 - X5 修正：浏览器实测视频无法播放，控制台显示 CSP 拦截 blob；补 `media-src 'self' blob:` 后 `<video>` readyState=4。抽帧发现标题为缺字方框，原因是 `Locale.ENGLISH` 不命中 `en_US` 资源包，改为 `Locale.US` 后恢复 ASCII 文字。
 
-## 14. 第三方资源
+> 实际投入：待作者填写（设计 __ h、后端 __ h、前端 __ h、测试与 CI __ h、文档 __ h）；提交前请替换本行。
+
+## 第三方资源
 
 - Inter Variable 与 JetBrains Mono：SIL Open Font License 1.1，自托管于 `frontend/src/assets/fonts` 与后端渲染资源。
 - 图标：lucide-react（ISC）。
@@ -282,7 +325,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - ffmpeg：LGPL/GPL（取决于构建），仅作为运行时依赖调用，不随源码分发。
 - 参考界面截图位于 [docs/assets/reference](docs/assets/reference)，仅用于布局对照。
 
-## 15. 交付状态
+## 交付清单
 
 - [x] 设计与验收文档
 - [x] 前后端完整源码
@@ -293,4 +336,12 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
 - [x] 演示脚本、AI 使用说明、已知限制
-- [x] 验收 tag：`v1.0.1-submission`（M8 干净环境 15/15 + 全量链路 21/21 通过；含 README 顶部演示视频）
+- [x] 验收 tag：`v1.0.1-submission`（M8 干净环境 15/15 + 全量链路 21/21 通过；含演示视频）
+
+---
+
+<div align="center">
+
+**简体中文** ｜ [English](README.en.md)
+
+</div>
