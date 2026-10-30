@@ -2,7 +2,11 @@
 
 深色画廊风格的素材制作网站：浏览模板、上传照片、提交三步异步制作任务，在处理期间继续浏览，最后查看个人历史与结果。图片模板带预设调色与轻人像，视频模板把照片渲染为 15 秒 MP4。前端 Next.js，后端 Spring Boot 3 + Spring Security + MyBatis，MySQL 8.4 持久化，视频使用 ffmpeg。
 
-- 验收 tag：`v1.0-submission`（M8 干净环境证据见 [docs/evidence/m8-acceptance.md](docs/evidence/m8-acceptance.md)；X5 模板特效/视频与个人设置已并入最终版本）
+[![FrameLab 视频演示：模板库、上传与结果预览](docs/assets/demo/framelab-demo-poster.jpg)](docs/assets/demo/framelab-demo.mp4)
+
+> ▶ 点击封面观看 1 分 38 秒演示：模板筛选、照片上传、三步任务、结果预览与中英文切换。GitHub 不内嵌视频，点击封面打开 MP4。
+
+- 验收 tag：`v1.0.1-submission`（M8 干净环境证据见 [docs/evidence/m8-acceptance.md](docs/evidence/m8-acceptance.md)；X5 模板特效/视频与个人设置已并入最终版本）
 - 视觉证据：[docs/assets/visual](docs/assets/visual)
 - 设计口径：[docs/README.md](docs/README.md)，开发与验收以文档为准
 
@@ -289,4 +293,4 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
 - [x] 演示脚本、AI 使用说明、已知限制
-- [x] 验收 tag：`v1.0-submission`（M8 干净环境 15/15 + 全量链路 21/21 通过）
+- [x] 验收 tag：`v1.0.1-submission`（M8 干净环境 15/15 + 全量链路 21/21 通过；含 README 顶部演示视频）
