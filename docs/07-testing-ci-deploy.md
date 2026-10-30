@@ -362,7 +362,7 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy
@@ -386,9 +386,8 @@ volumes:
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 COPY pom.xml .
-RUN mvn -B -q dependency:go-offline
 COPY src ./src
-RUN mvn -B -q -DskipTests package
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update \
@@ -403,7 +402,7 @@ EXPOSE 8080
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 ```
 
-- 构建阶段跳过测试（CI 已跑）；镜像内不包含源码与 Maven 缓存。
+- 构建阶段跳过测试（CI 已跑）；镜像内不包含源码与 Maven 缓存；`~/.m2` 使用 BuildKit 缓存挂载加速重复构建。
 - `pom.xml` 设置 `<finalName>framelab-api</finalName>`，保证 Dockerfile 复制的 jar 名固定。
 - 非 root 运行；`storage` 卷由启动时创建并授权（如挂载卷权限不足，见 §9 故障排查）。
 - 字体 `Inter-SemiBold.ttf` 与模板封面在 `src/main/resources` 中，随 jar 打包。
@@ -415,7 +414,7 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 FROM node:22-alpine AS deps
 WORKDIR /app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM node:22-alpine AS build
@@ -440,6 +439,7 @@ CMD ["node", "server.js"]
 ```
 
 - `next.config.ts` 必须设置 `output: 'standalone'`。
+- `pnpm-workspace.yaml` 的 `allowBuilds` 允许 `unrs-resolver` 执行 postinstall；缺失会导致 `ERR_PNPM_IGNORED_BUILDS`。
 - `NEXT_PUBLIC_BACKEND_URL` 在构建时内联；改地址需重新 `--build`。README 说明。
 - 前端不包含数据库凭据。
 - `frontend/.dockerignore` 排除 `node_modules/`、`.next/`、`.env*`、测试产物。
@@ -470,6 +470,9 @@ FRAMELAB_RETRY_BACKOFF_MAX_SECONDS=30
 
 # 浏览器访问 Java 的地址；改后需重建前端镜像
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
+
+# Compose 前端宿主端口；默认 3000，端口占用或并行验收时可改
+FRONTEND_PORT=3000
 ```
 
 - `.env` 不入库；`.env.example` 只含演示值。
