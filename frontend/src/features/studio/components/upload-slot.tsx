@@ -241,19 +241,6 @@ export function UploadSlot({
           </button>
         )}
       </div>
-
-      {state.error && state.status !== "uploading" ? (
-        <p role="alert" className="text-[11px] leading-4 text-danger">
-          {state.error === "type"
-            ? t("studio.errorType", {
-                index,
-                types: acceptedTypes.map(typeLabel).join(" / ")
-              })
-            : state.error === "size"
-              ? t("studio.errorSize", { index, size: sizeLabel })
-              : state.errorDetail ?? t("studio.errorUpload")}
-        </p>
-      ) : null}
     </div>
   );
 }

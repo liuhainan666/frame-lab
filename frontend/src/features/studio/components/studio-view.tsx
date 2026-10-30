@@ -66,14 +66,14 @@ function StudioBackLink({
 function SubmitButton({
   ready,
   submitting,
-  submitError,
+  failed,
   onStart,
   onLogin,
   className
 }: {
   ready: boolean;
   submitting: boolean;
-  submitError: string | null;
+  failed: boolean;
   onStart: () => void;
   onLogin: () => void;
   className?: string;
@@ -99,7 +99,7 @@ function SubmitButton({
 
   const inner = submitting
     ? t("studio.submitting")
-    : submitError
+    : failed
       ? t("studio.retrySubmit")
       : t("studio.start");
 
@@ -146,7 +146,7 @@ export function StudioView({
 
   const [slots, setSlots] = useState<UploadSlotState[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitFailed, setSubmitFailed] = useState(false);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const initializedFor = useRef<string | null>(null);
   const controllers = useRef(new Map<number, AbortController>());
@@ -220,6 +220,19 @@ export function StudioView({
       validation = "size";
     }
     if (validation) {
+      toast({
+        title:
+          validation === "type"
+            ? t("studio.errorType", {
+                index,
+                types: template.acceptedMimeTypes.map(typeLabel).join(" / ")
+              })
+            : t("studio.errorSize", {
+                index,
+                size: formatFileSize(template.maxFileSizeBytes, locale)
+              }),
+        tone: "error"
+      });
       patchSlot(index, { error: validation, errorDetail: null });
       return;
     }
@@ -236,7 +249,7 @@ export function StudioView({
     }
 
     const previewUrl = URL.createObjectURL(file);
-    setSubmitError(null);
+    setSubmitFailed(false);
     patchSlot(index, {
       status: "uploading",
       file,
@@ -267,6 +280,7 @@ export function StudioView({
         controllers.current.delete(index);
       }
       const detail = isApiError(error) ? error.detail ?? error.message : null;
+      toast({ title: t("studio.errorUpload"), description: detail ?? undefined, tone: "error" });
       patchSlot(index, { status: "error", error: "upload", errorDetail: detail });
     }
   }
@@ -284,7 +298,7 @@ export function StudioView({
     if (slot.previewUrl) {
       URL.revokeObjectURL(slot.previewUrl);
     }
-    setSubmitError(null);
+    setSubmitFailed(false);
     patchSlot(index, emptySlot(index));
   }
 
@@ -299,7 +313,7 @@ export function StudioView({
     }
     const intent = intentRef.current;
     setSubmitting(true);
-    setSubmitError(null);
+    setSubmitFailed(false);
 
     try {
       const task = await submitTask({
@@ -325,8 +339,7 @@ export function StudioView({
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } catch (error) {
       const detail = isApiError(error) ? error.detail ?? error.message : null;
-      const message = detail ?? t("studio.submitError");
-      setSubmitError(message);
+      setSubmitFailed(true);
       toast({ title: t("studio.submitError"), description: detail ?? undefined, tone: "error" });
       if (isApiError(error) && error.code === "IDEMPOTENCY_KEY_REUSED") {
         intentRef.current = null;
@@ -489,7 +502,7 @@ export function StudioView({
             <SubmitButton
               ready={allUploaded}
               submitting={submitting}
-              submitError={submitError}
+              failed={submitFailed}
               onStart={() => void handleSubmit()}
               onLogin={() => router.push(loginHref)}
             />
@@ -498,11 +511,6 @@ export function StudioView({
                 {missing === 1
                   ? t("studio.missingOne", { count: missing })
                   : t("studio.missing", { count: missing })}
-              </p>
-            ) : null}
-            {submitError ? (
-              <p role="alert" className="text-[12px] leading-[18px] text-danger">
-                {submitError}
               </p>
             ) : null}
           </div>
@@ -525,7 +533,7 @@ export function StudioView({
         <SubmitButton
           ready={allUploaded}
           submitting={submitting}
-          submitError={submitError}
+          failed={submitFailed}
           onStart={() => void handleSubmit()}
           onLogin={() => router.push(loginHref)}
         />
