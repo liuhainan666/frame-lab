@@ -1,6 +1,7 @@
 package com.framelab.common.i18n;
 
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -23,6 +24,18 @@ public class MessageResolver {
 
     public String get(Locale locale, String key, Object... args) {
         return messageSource.getMessage(key, args, key, locale);
+    }
+
+    public String getNamed(String key, Map<String, ?> args) {
+        String template = get(key);
+        if (args == null || args.isEmpty()) {
+            return template;
+        }
+        String rendered = template;
+        for (Map.Entry<String, ?> entry : args.entrySet()) {
+            rendered = rendered.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
+        }
+        return rendered;
     }
 
     public boolean exists(String key) {
