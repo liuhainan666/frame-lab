@@ -2,7 +2,7 @@
 
 深色画廊风格的素材制作网站：浏览模板、上传照片、提交三步异步制作任务，在处理期间继续浏览，最后查看个人历史与结果。图片模板带预设调色与轻人像，视频模板把照片渲染为 15 秒 MP4。前端 Next.js，后端 Spring Boot 3 + Spring Security + MyBatis，MySQL 8.4 持久化，视频使用 ffmpeg。
 
-- 验收 commit：`dc06422`（容器与 CI 位于 `004eebe..22ef184`；干净环境证据见 [docs/evidence/m8-acceptance.md](docs/evidence/m8-acceptance.md)）
+- 验收 tag：`v1.0-submission`（M8 干净环境证据见 [docs/evidence/m8-acceptance.md](docs/evidence/m8-acceptance.md)；X5 模板特效/视频与个人设置已并入最终版本）
 - 视觉证据：[docs/assets/visual](docs/assets/visual)
 - 设计口径：[docs/README.md](docs/README.md)，开发与验收以文档为准
 
@@ -257,7 +257,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - 模拟控制为全局单例，仅用于演示；生产不应暴露管理端。
 - 生产需在反向代理配置 HTTPS/HSTS，并限制 3000/8080 暴露。
 
-实际投入：待作者按真实工时填写（设计 / 后端 / 前端 / 测试与 CI / 文档）。
+实际投入：待作者填写（设计 __ h、后端 __ h、前端 __ h、测试与 CI __ h、文档 __ h）；提交前请替换本行。
 
 ## 13. AI 使用说明
 
@@ -289,4 +289,4 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
 - [x] 演示脚本、AI 使用说明、已知限制
-- [x] 验收 commit：`dc06422`（干净环境 15/15 + 全量链路 21/21 通过）
+- [x] 验收 tag：`v1.0-submission`（M8 干净环境 15/15 + 全量链路 21/21 通过）
