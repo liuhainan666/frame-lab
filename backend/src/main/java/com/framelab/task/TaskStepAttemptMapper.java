@@ -14,9 +14,13 @@ public interface TaskStepAttemptMapper {
 
     TaskStepAttemptRow findRunningByStep(@Param("stepId") long stepId);
 
+    int maxAttemptNo(@Param("stepId") long stepId);
+
     int markSucceeded(@Param("id") long id);
 
     int markFailed(@Param("id") long id,
                    @Param("errorCode") String errorCode,
                    @Param("errorDetail") String errorDetail);
+
+    int markInterrupted(@Param("id") long id);
 }

@@ -44,6 +44,12 @@
          LIMIT 1
     </select>
 
+    <select id="maxAttemptNo" resultType="int">
+        SELECT COALESCE(MAX(attempt_no), 0)
+          FROM task_step_attempt
+         WHERE step_id = #{stepId}
+    </select>
+
     <update id="markSucceeded">
         UPDATE task_step_attempt
            SET status = 'SUCCEEDED',
@@ -59,6 +65,16 @@
            SET status = 'FAILED',
                error_code = #{errorCode},
                error_detail = #{errorDetail},
+               finished_at = UTC_TIMESTAMP(3)
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markInterrupted">
+        UPDATE task_step_attempt
+           SET status = 'INTERRUPTED',
+               error_code = NULL,
+               error_detail = NULL,
                finished_at = UTC_TIMESTAMP(3)
          WHERE id = #{id}
            AND status = 'RUNNING'
