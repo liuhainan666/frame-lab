@@ -61,6 +61,11 @@
 | BE-U-23 | 语言协商 | `en-US`/`en`/`zh-CN`/`zh`/q 权重/不支持语言均正确归一 |
 | BE-U-24 | 消息渲染 | 失败码、步骤消息、参数插值在中英文下无缺键、无空串 |
 | BE-U-25 | 翻译回退 | 缺 en-US 模板/分类翻译时回退基础中文 |
+| BE-U-26 | spec 解析 | 图片/视频合法 spec 解析成功；未知字段、类型不符、kind 不匹配被拒绝 |
+| BE-U-27 | spec 校验 | 时长方程、转场范围、分辨率、fps、槽位数、LUT/音频路径越界、颜色格式、缺失文字键均拒绝 |
+| BE-U-28 | LUT 采样 | `.cube` 解析、17³ 维度校验、三线性插值与 LUT 强度混合正确；损坏文件拒绝 |
+| BE-U-29 | 颜色与人像 | 曝光/饱和/对比可量化变化；肤色区域提亮、非肤色区域基本不变；暗角与颗粒可重复 |
+| BE-U-30 | 视频渲染（可选 ffmpeg） | 生成 MP4 + poster；H.264/AAC、分辨率、时长正确；LUT 与文字叠加可用 |
 
 ### 3.2 后端集成测试（Testcontainers MySQL）
 
@@ -68,7 +73,7 @@
 
 | ID | 用例 | 断言 |
 |---|---|---|
-| BE-I-01 | 迁移与种子 | 表全部存在；6 分类、10 模板、3 用户、单行模拟配置；6+10 条 en-US 翻译 |
+| BE-I-01 | 迁移与种子 | 表全部存在；6 分类、13 模板（12 图片 + 1 视频）、3 用户、单行模拟配置；6+13 条 en-US 翻译 |
 | BE-I-02 | 登录成功 | 200 + accessToken + Set-Cookie；DB 有令牌哈希 |
 | BE-I-03 | 登录失败 | 401 `INVALID_CREDENTIALS`，响应不区分原因 |
 | BE-I-04 | 刷新与会话 | refresh 200 并下发新 Cookie；logout 后 refresh 401；Cookie 属性正确 |
@@ -106,6 +111,12 @@
 | BE-I-36 | 宽限与重放 | 30s 内旧令牌可再次刷新且不撤销家族；超宽限重用撤销家族，活跃令牌全部 401 |
 | BE-I-37 | 即时失效 | 禁用用户旧 accessToken 下一次请求 401；logout-all 撤销全部家族并递增 `token_version` |
 | BE-I-38 | 关闭轮换回滚 | `refresh-rotation-enabled=false` 时 refresh 200 且不重设 Cookie；旧令牌可重复使用 |
+| BE-I-39 | 模板类型与效果 | 列表/详情返回 `kind`、`effectTags`、`output`；视频模板 `durationMs`/`hasAudio` 正确 |
+| BE-I-40 | 非法模板 spec | 提交坏 spec 的模板返回 500 `TEMPLATE_SPEC_INVALID`，不创建任务 |
+| BE-I-41 | 视频任务成功 | 3 张素材的小视频模板提交后 SUCCEEDED；结果 `video/mp4`、poster、宽高、时长字段完整 |
+| BE-I-42 | 视频 Range | 全量 200 `video/mp4` + `Accept-Ranges`；`Range: bytes=0-99` 返回 206 + 100 字节 + `Content-Range` |
+| BE-I-43 | 视频封面 | poster 返回 `image/jpeg`；图片任务/未成功任务 poster 404；他人 404 |
+| BE-I-44 | 视频恢复 | 中断的视频任务恢复后从 FINALIZE 续跑，结果元数据与临时目录均正确清理 |
 
 集成测试注意：
 
@@ -118,6 +129,7 @@
 - 时间断言允许 10 ms 误差；步骤顺序用 `started_at` 与 seq 共同断言。
 - 语言测试对同一资源分别请求 `zh-CN` 与 `en-US`，断言 `code` 不变、`detail/message` 变化、`Content-Language` 正确。
 - 结果图断言尺寸与文件头，不做像素级黄金图对比（避免环境字体/渲染差异）。
+- 视频集成测试若本机 `ffmpeg`/`ffprobe` 不可用则跳过（`Assumptions`）；CI 的 Ubuntu runner 预装 ffmpeg，必须执行。测试使用 360×640、3 秒的小视频模板，避免拖慢套件。
 
 ### 3.3 前端组件测试
 
@@ -153,6 +165,11 @@
 | FE-U-28 | 英文布局 | 360px 下英文顶栏/卡片/按钮不溢出；长标题两行 |
 | FE-U-29 | 本地化 API 消息 | 任务失败原因与错误提示使用 API message，不硬编码中文 |
 | FE-U-30 | 缺键回退 | en-US 词典缺键时回退 zh-CN，不渲染 key 或空白 |
+| FE-U-31 | 模板类型与效果 | 卡片/制作台显示图片/视频徽标、效果标签、视频时长与素材数 |
+| FE-U-32 | 视频制作台 | 5 个上传位；按钮为“生成视频”；输出摘要含时长/分辨率/音乐 |
+| FE-U-33 | 视频结果预览 | 取 poster 与视频 Blob；`<video controls playsInline preload="metadata">`；显示时长/尺寸/大小 |
+| FE-U-34 | 视频加载失败 | 视频请求失败显示“视频加载失败” + 重试；重试成功后恢复 |
+| FE-U-35 | 视频卡片与 i18n | 历史/右栏视频卡显示 poster + 时长 + 播放角标；中英文标签不溢出 |
 
 前端测试约定：
 
@@ -178,9 +195,9 @@
 | 数据 | 位置 | 说明 |
 |---|---|---|
 | 演示账号 | Flyway 种子 | demo / demo2 / admin |
-| 模板与封面 | Flyway + static | 10 个；封面本地 |
-| 上传夹具 | `backend/src/test/resources/fixtures/` | 100×100 JPEG/PNG；非法文本、超大头像、伪装扩展名 |
-| 前端 MSW 夹具 | `frontend/src/test/fixtures/` | 模板、任务各状态（含 RETRYING/恢复）、尝试历史、中英文 ProblemDetail |
+| 模板与封面 | Flyway + static | 13 个（12 图片 + 1 视频）；封面、LUT、音乐本地 |
+| 上传夹具 | `backend/src/test/resources/fixtures/` | 100×100 JPEG/PNG；非法文本、超大头像、伪装扩展名；视频测试使用小规格模板 |
+| 前端 MSW 夹具 | `frontend/src/test/fixtures/` | 模板（含视频）、任务各状态（含 RETRYING/恢复/视频成功）、尝试历史、中英文 ProblemDetail |
 | 结果断言 | 临时目录 | 每测试独立 `@TempDir`；结束后清理 |
 
 不在仓库提交真实用户照片、个人信息或大文件。
@@ -248,6 +265,8 @@ jobs:
           NEXT_PUBLIC_BACKEND_URL: http://localhost:8080
         run: pnpm build
 ```
+
+> Ubuntu runner 自带 `ffmpeg`/`ffprobe`，视频集成测试会实际执行；本机缺少时测试跳过，图片套件不受影响。
 
 说明：
 
@@ -395,7 +414,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl fontconfig \
+ && apt-get install -y --no-install-recommends curl fontconfig ffmpeg \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --create-home framelab
 WORKDIR /app
@@ -410,6 +429,7 @@ ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
 - `pom.xml` 设置 `<finalName>framelab-api</finalName>`，保证 Dockerfile 复制的 jar 名固定。
 - 非 root 运行；`storage` 卷由启动时创建并授权（如挂载卷权限不足，见 §9 故障排查）。
 - 字体 `Inter-SemiBold.ttf` 与模板封面在 `src/main/resources` 中，随 jar 打包。
+- 镜像安装 `ffmpeg`（含 `ffprobe`）供视频模板使用；缺失时视频模板提交返回 503，图片模板不受影响。
 - `backend/.dockerignore` 排除 `target/`、`.mvn/` 缓存与本地文件。
 
 ### 6.5 frontend/Dockerfile
@@ -475,6 +495,14 @@ FRAMELAB_WORKER_POLL_MS=500
 FRAMELAB_RETRY_MAX_STEP_ATTEMPTS=3
 FRAMELAB_RETRY_BACKOFF_BASE_SECONDS=2
 FRAMELAB_RETRY_BACKOFF_MAX_SECONDS=30
+
+# 视频模板（默认值可直接省略；缺 ffmpeg 时仅视频模板不可用）
+FRAMELAB_FFMPEG_ENABLED=true
+# FRAMELAB_FFMPEG_BINARY=ffmpeg
+# FRAMELAB_FFMPEG_PROBE=ffprobe
+FRAMELAB_FFMPEG_TIMEOUT=180s
+FRAMELAB_FFMPEG_MAX_CONCURRENT=1
+FRAMELAB_FFMPEG_MAX_OUTPUT_BYTES=209715200
 
 # 浏览器访问 Java 的地址；改后需重建前端镜像
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
@@ -666,6 +694,15 @@ pnpm dev
     curl -s http://localhost:8080/api/templates \
       -H 'Accept-Language: en-US' | jq '.items[0] | {title, description}'
     ```
+
+### 8.12 图片特效与视频模板
+
+40. 打开“黄金时刻”，上传 2 张照片，提交；完成后结果明显偏暖/琥珀，与“胶片记忆”或“夏日海岸”对比肉眼可辨。
+41. 打开“清透人像”，上传 1 张人像，提交；确认肤色更均匀、亮度略提升，背景与纹理不被抹平。
+42. 打开“城市漫游”，上传 5 张照片，点击“生成视频”；任务卡先显示排队/处理中，完成后显示 `15 秒` 与 poster。
+43. 打开结果弹层：封面先出现，视频可播放、可拖动进度条；视频文件为 H.264 + AAC、1080×1920、15 秒。
+44. 视频处理中重启后端：任务恢复后从 `FINALIZE` 继续，完成后可播放；临时目录无残留（系统临时目录下 `framelab-*` 不存在）。
+45. 英文界面打开视频模板：类型/效果标签/时长/按钮为英文；视频文字层为 ASCII `City Walk`，无方框缺字。
 
 ## 9. 回滚与运维
 

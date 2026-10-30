@@ -101,6 +101,7 @@ backend/src/main/java/com/framelab/
 │  ├─ MyBatisConfig.java
 │  ├─ WorkerConfig.java
 │  ├─ RetryProperties.java
+│  ├─ FfmpegProperties.java
 │  ├─ StorageConfig.java
 │  ├─ JacksonConfig.java
 │  └─ WebConfig.java
@@ -120,6 +121,9 @@ backend/src/main/java/com/framelab/
 │  ├─ TemplateController.java
 │  ├─ TemplateService.java
 │  ├─ TemplateMapper.java
+│  ├─ TemplateKind.java
+│  ├─ spec/           TemplateRenderSpec、ImageRenderSpec、VideoRenderSpec、
+│  │                  TemplateRenderSpecParser、TemplateRenderSpecValidator
 │  └─ dto/
 ├─ asset/
 │  ├─ AssetController.java
@@ -141,7 +145,10 @@ backend/src/main/java/com/framelab/
 │  ├─ worker/         TaskWorker、TaskClaimService、TaskPipeline、
 │  │                  RetryScheduler、StartupRecovery
 │  ├─ step/           StepRunner、MaterialCheckStep、GenerateStep、FinalizeStep
-│  ├─ render/         LayoutPlanner、ResultRenderer
+│  ├─ render/         LayoutPlanner、ResultRenderer、EffectResultRenderer、
+│  │                  CubeLut、LutRegistry、ColorPipeline、PortraitProcessor、
+│  │                  GlobalEffects、ByteRangeResource
+│  │                  video/ VideoRenderService、VideoArtifacts
 │  └─ dto/
 ├─ simulation/
 │  ├─ SimulationController.java
@@ -470,7 +477,9 @@ catch TaskFailureException e
 
 ## 7. 结果合成
 
-### 7.1 版式
+### 7.1 版式与效果
+
+图片模板按 spec 渲染；`layout=legacy` 保持旧版式：
 
 | 素材数 | 布局 |
 |---|---|
@@ -478,11 +487,21 @@ catch TaskFailureException e
 | 2 | 左右各 50%，中间 12 px 留白；各自 cover 裁剪 |
 | 3 | 上方 62% 一张，下方 38% 两张并排；间距 12 px |
 
-- 画布来自任务快照（创建时的模板 `canvas_width/height`）。
+效果顺序固定：白平衡/曝光/对比/饱和/高光阴影 → LUT → 清晰度 → 轻人像（肤色蒙版平滑/提亮）→ 合成 → 暗角/颗粒/泛光 → 水印 → JPEG。`CubeLut` 解析 17³ `.cube` 并做三线性采样；`LutRegistry` 按 classpath key 缓存。随机颗粒以任务 ID 派生种子，保证同任务可重复。
+
+- 画布来自任务快照（创建时的模板 `canvas_width/height`）；视频为模板输出分辨率。
 - 所有图片按 `max(scaleX, scaleY)` 居中裁剪，避免拉伸。
 - 右下角绘制 `FRAMELAB · {taskId 前 8 位}`，使用打包的 `Inter-SemiBold.ttf`（OFL 许可）；容器内以 headless 模式运行，字体从 classpath 加载，不依赖系统字体。
 - 输出 JPEG quality 0.9，无 EXIF；尺寸与画布一致。
 - 不用中文绘制，避免容器缺字库。
+
+视频模板由 `VideoRenderService` 生成：
+
+- 每张素材按槽位 `durationMs` 与 `zoompan` 运动生成片段，`xfade` 转场（fade/slide/zoom）。
+- `lut3d` + `blend` 实现 LUT 强度；`eq`/`colorbalance`/`vignette`/`noise` 实现调色与质感。
+- Java2D 生成透明 PNG 文字/水印叠加层（仅 ASCII，`Locale.US`），避免 ffmpeg `drawtext` 的字体/路径问题。
+- 音频 AAC + 淡出；H.264 MP4 faststart；ffprobe 校验编码、分辨率、时长（±250ms）；首帧导出 poster JPEG。
+- 工作区位于系统临时目录，超时 180s、并发 1，结束递归清理；输出大小上限 200 MB。
 
 ### 7.2 原子写
 
@@ -504,13 +523,15 @@ storage/tmp/task-{taskId}/result-{uuid}.jpg
 ```java
 interface ObjectStorage {
     StoredObject writeMaterial(long userId, String assetId, byte[] bytes, String ext);
-    StoredObject writeResult(long userId, String taskId, Path tempFile);
+    StoredObject writeResult(long userId, String taskId, byte[] bytes, String ext);
+    StoredObject writeResultFile(long userId, String taskId, Path tempFile, String ext);
     Resource open(String storageKey);
     void delete(String storageKey);
 }
 ```
 
 P0 实现 `LocalObjectStorage`；未来换 S3 只替换实现，不改任务服务。`storageKey` 永不接受客户端输入。
+视频结果与封面分别写 `.mp4` 与 `.jpg`；扩展名由服务端白名单校验。结果读取按 MIME 返回，并支持单段 Range（`ByteRangeResource`）。
 
 ## 8. 前端状态与轮询
 
@@ -832,7 +853,7 @@ spring:
 | ADR-03 | 文件存储 | 本地目录 + Volume | 满足“服务端可用素材”，部署简单 | 多实例需共享卷；扩容改 S3 |
 | ADR-04 | 鉴权 | JWT + 刷新 Cookie + 令牌版本 | 无状态、前后端分离、Spring Security 原生支持；退出全部/禁用可立即失效 | 每请求多一次主键查询；若压测有瓶颈再加 ≤30s 短缓存 |
 | ADR-05 | Next.js 角色 | 页面 + 客户端数据编排，直连 Java | 满足 R-01 职责边界，避免双重业务实现 | 需处理 CORS、令牌刷新；生产建议同域代理 |
-| ADR-06 | 结果生成 | Java2D 确定性合成 | 结果真实可预览，失败阶段有实际工作 | 不是 AI；版式固定，不评图像质量 |
+| ADR-06 | 结果生成 | 图片 Java2D + LUT 确定性合成；视频 ffmpeg filter graph | 结果真实可预览，失败阶段有实际工作；视频可获得真实编码产物 | 不是 AI；图片版式固定，视频模板固定节奏；不评图像质量 |
 | ADR-07 | ORM | MyBatis XML | SQL 可控、易解释、贴近题目要求 | 手写映射；复杂查询比 JPA 多写代码 |
 | ADR-08 | 前端组件 | Tailwind + Radix 自建 | 视觉可控、可访问性有保障、无重型主题覆盖 | 需要自己维护组件规范（见 06） |
 | ADR-09 | 数据库 | MySQL 8.4 | 题目要求；`SKIP LOCKED`、CHECK、JSON 能力足够 | 无 |

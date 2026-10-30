@@ -32,6 +32,7 @@
 | `template_category_translation` | 分类名称的 `en-US` 文案 | [03 · 翻译表](03-database.md#3-建表-ddl) |
 | `template_translation` | 模板标题与描述的 `en-US` 文案 | [03 · 翻译表](03-database.md#3-建表-ddl) |
 | `simulation_setting.fail_retryable` | 模拟失败是否可重试 | [03 · 模拟配置](03-database.md#3-建表-ddl) |
+| `task.render_spec_snapshot` / `result_mime_type` / `result_poster_key` / `result_duration_ms` | 渲染 spec 快照与视频结果元数据 | [03 · task](03-database.md#3-建表-ddl) |
 
 > 文案不落“已翻译文本”：任务只存稳定错误码、消息键与 JSON 参数，读取时按请求语言渲染。这样历史记录在切换语言后仍能正确显示，也不会把某一种语言的句子写死进业务数据。
 
@@ -375,6 +376,15 @@ worker 认领任务后：
 - 不恢复 `RETRYING` 的剩余等待时间以外的状态；等待时间本身不因重启延长或缩短。
 - 不实现“取消任务”；恢复后的任务会继续执行到终态。
 
+### 4.8 视频渲染的恢复与资源清理
+
+- 视频走同一套 `task_step` 机制；失败分类新增 `VIDEO_RENDER_FAILED`（可重试）、`VIDEO_TIMEOUT`（可重试）、`VIDEO_INPUT_INVALID` / `VIDEO_OUTPUT_INVALID`（不可重试）、`VIDEO_UNAVAILABLE`（提交期 503 或 MATERIAL_CHECK 失败）。
+- 渲染在系统临时目录下的独立工作区完成，使用 `try-with-resources`/`finally` 递归删除；进程超时调用 `destroyForcibly` 后仍执行清理。
+- 生成成功但 ffprobe 校验失败视为 `VIDEO_OUTPUT_INVALID`，不写结果；已写的结果文件与封面在失败路径删除，避免孤儿文件。
+- 任务恢复重跑 `FINALIZE` 时，旧的未完成临时目录无引用；新尝试创建新目录。结果写入沿用原子移动 + 唯一存储键。
+- 并发由本地信号量限制（默认 1）；多实例部署下该信号量不跨实例，属于已知限制。
+- 崩溃恢复沿用步骤边界：不会复用半成品 MP4，FINALIZE 整步重跑。
+
 ## 5. E-04 国际化
 
 ### 5.1 语言与协商
@@ -520,6 +530,13 @@ attempt INTERRUPTED → 消息键 task.attempt.INTERRUPTED
 - 同一任务在中文与英文下读取，历史消息随语言变化；这是“按请求语言渲染”的预期行为。
 - 技术诊断字段不参与翻译，也不返回给普通用户；管理员排障日志可引用。
 - 模拟失败在用户文案中明确标注“模拟”，并通过 `failure.simulated` 供前端显示标记。
+
+视频渲染的叠加文字是**渲染产物**，不是界面文案：
+
+- 模板 `textKey`（如 `video.cityWalk.title`）在渲染时固定按 `en-US` 解析（Spring `Locale.US`），保证只使用 ASCII；容器运行字体不保证包含中文字形，写入中文会出现方框。
+- 水印同样只使用 `FRAMELAB · {shortId}`；任务短码为十六进制，天然 ASCII。
+- 用户切换界面语言不会重新渲染视频；结果不可变。需要中文视频文字属于 V2 范围（需打包 CJK 字体并重新设计文案模型）。
+- 视频失败原因、状态、按钮等界面文案仍按请求语言本地化，与渲染文字互不影响。
 
 ### 5.7 缓存、请求与刷新
 

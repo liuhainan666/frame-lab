@@ -25,6 +25,9 @@
 | `V1__schema.sql` | 全部表、索引、约束 |
 | `V2__seed.sql` | 分类、模板、演示账号、模拟配置默认值 |
 | `V3__session_security.sql` | 用户令牌版本、刷新令牌家族、轮换链与撤销原因 |
+| `V4__template_effects_video.sql` | 模板 `kind`/`render_spec`/`effect_tags`/`output_kind`；任务快照与视频结果字段 |
+| `V5__template_effect_seed.sql` | 为 10 个图片模板回填调色 spec，新增 `golden-hour`、`clear-portrait` |
+| `V6__video_template_seed.sql` | 新增 `city-walk-15s` 照片轮播视频模板 |
 
 > 种子口令仅用于演示环境，README 必须提示修改；生产部署不得沿用。
 
@@ -60,7 +63,7 @@ app_user 1─n simulation_setting (updated_by)
 ## 3. 建表 DDL
 
 ```sql
--- V1__schema.sql + V3__session_security.sql（合并展示最终结构）
+-- V1__schema.sql + V3__session_security.sql + V4__template_effects_video.sql（合并展示最终结构）
 SET NAMES utf8mb4;
 
 CREATE TABLE app_user (
@@ -129,12 +132,16 @@ CREATE TABLE template_category (
 CREATE TABLE template (
   id                    VARCHAR(64)   NOT NULL,
   category_id           VARCHAR(32)   NOT NULL,
+  kind                  VARCHAR(16)   NOT NULL DEFAULT 'IMAGE',
   title                 VARCHAR(80)   NOT NULL,
   description           VARCHAR(500)  NOT NULL,
   cover_path            VARCHAR(255)  NOT NULL,
   required_image_count  TINYINT UNSIGNED NOT NULL,
   accepted_mime_types   VARCHAR(120)  NOT NULL DEFAULT 'image/jpeg,image/png',
   max_file_size_bytes   INT UNSIGNED  NOT NULL DEFAULT 10485760,
+  render_spec           JSON          NULL,
+  effect_tags           JSON          NULL,
+  output_kind           VARCHAR(16)   NOT NULL DEFAULT 'IMAGE',
   canvas_width          SMALLINT UNSIGNED NOT NULL DEFAULT 1200,
   canvas_height         SMALLINT UNSIGNED NOT NULL DEFAULT 1600,
   sort_order            INT           NOT NULL DEFAULT 0,
@@ -145,8 +152,11 @@ CREATE TABLE template (
   PRIMARY KEY (id),
   KEY idx_template_category (category_id, sort_order),
   KEY idx_template_published (is_published, sort_order),
+  KEY idx_template_kind_published (kind, is_published, sort_order),
   CONSTRAINT fk_template_category FOREIGN KEY (category_id)
     REFERENCES template_category (id) ON DELETE RESTRICT,
+  CONSTRAINT ck_template_kind       CHECK (kind IN ('IMAGE','VIDEO')),
+  CONSTRAINT ck_template_output     CHECK (output_kind IN ('IMAGE','VIDEO')),
   CONSTRAINT ck_template_title      CHECK (CHAR_LENGTH(title) BETWEEN 1 AND 80),
   CONSTRAINT ck_template_desc       CHECK (CHAR_LENGTH(description) BETWEEN 1 AND 500),
   CONSTRAINT ck_template_count      CHECK (required_image_count BETWEEN 1 AND 5),
@@ -157,7 +167,7 @@ CREATE TABLE template (
   CONSTRAINT ck_template_mime       CHECK (accepted_mime_types IN
                                      ('image/jpeg,image/png','image/jpeg','image/png'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='制作模板';
+  COMMENT='制作模板；kind 决定图片特效或照片轮播视频，render_spec 为版本化渲染参数';
 
 CREATE TABLE template_category_translation (
   category_id  VARCHAR(32)  NOT NULL,
@@ -210,8 +220,11 @@ CREATE TABLE task (
   id                    CHAR(36)        NOT NULL,
   user_id               BIGINT UNSIGNED NOT NULL,
   template_id           VARCHAR(64)     NOT NULL,
+  template_kind         VARCHAR(16)     NOT NULL DEFAULT 'IMAGE',
   template_title        VARCHAR(80)     NOT NULL,
   template_cover_path   VARCHAR(255)    NOT NULL,
+  render_spec_snapshot  JSON            NULL,
+  output_kind           VARCHAR(16)     NOT NULL DEFAULT 'IMAGE',
   canvas_width          SMALLINT UNSIGNED NOT NULL,
   canvas_height         SMALLINT UNSIGNED NOT NULL,
   client_request_id     CHAR(36)        NOT NULL,
@@ -229,8 +242,11 @@ CREATE TABLE task (
   failure_detail        VARCHAR(500)    NULL,
   failure_simulated     TINYINT(1)      NOT NULL DEFAULT 0,
   result_storage_key    VARCHAR(255)    NULL,
+  result_mime_type      VARCHAR(64)     NULL,
+  result_poster_key     VARCHAR(255)    NULL,
   result_width          INT UNSIGNED    NULL,
   result_height         INT UNSIGNED    NULL,
+  result_duration_ms    INT UNSIGNED    NULL,
   result_size_bytes     BIGINT UNSIGNED NULL,
   created_at            DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   started_at            DATETIME(3)     NULL,
@@ -241,6 +257,7 @@ CREATE TABLE task (
   PRIMARY KEY (id),
   UNIQUE KEY uq_task_user_request (user_id, client_request_id),
   UNIQUE KEY uq_task_result_key (result_storage_key),
+  UNIQUE KEY uq_task_result_poster (result_poster_key),
   KEY idx_task_user_created (user_id, created_at),
   KEY idx_task_user_template_created (user_id, template_id, created_at),
   KEY idx_task_queued (status, created_at),
@@ -288,13 +305,28 @@ CREATE TABLE task (
       result_size_bytes IS NOT NULL AND result_size_bytes > 0
     )
   ),
+  CONSTRAINT ck_task_result_mime CHECK (
+    result_mime_type IS NULL OR result_mime_type IN ('image/jpeg','video/mp4')
+  ),
+  CONSTRAINT ck_task_result_duration CHECK (
+    result_duration_ms IS NULL OR result_duration_ms > 0
+  ),
+  CONSTRAINT ck_task_result_meta_success CHECK (
+    status <> 'SUCCEEDED' OR (
+      result_mime_type IS NOT NULL AND
+      (result_mime_type <> 'video/mp4' OR
+        (result_poster_key IS NOT NULL AND result_duration_ms IS NOT NULL))
+    )
+  ),
   CONSTRAINT ck_task_failure CHECK (
     status <> 'FAILED' OR failure_code IS NOT NULL
   ),
   CONSTRAINT ck_task_result_only_success CHECK (
     status = 'SUCCEEDED' OR (
       result_storage_key IS NULL AND result_width IS NULL AND
-      result_height IS NULL AND result_size_bytes IS NULL
+      result_height IS NULL AND result_size_bytes IS NULL AND
+      result_mime_type IS NULL AND result_poster_key IS NULL AND
+      result_duration_ms IS NULL
     )
   ),
   CONSTRAINT ck_task_failure_only_failed CHECK (
@@ -719,22 +751,27 @@ admin / Admin1234! -> $2b$12$tw0gJenxXaEbmRMWWabXoOZyKtLl4BhfZaWQIG6o7VMUiS18kf8
 | `life` | 生活记录 | 50 |
 | `commerce` | 电商海报 | 60 |
 
-### 6.3 模板（10 个）
+### 6.3 模板（13 个：12 图片 + 1 视频）
 
-| id | 分类 | 标题 | 素材数 | 画布 | 文件上限 |
-|---|---|---|---|---|---|
-| `travel-postcard` | travel | 旅行明信片 | 2 | 1600×1200 | 5 MB |
-| `film-memory` | creative | 胶片记忆 | 1 | 1200×1600 | 5 MB |
-| `summer-coast` | travel | 夏日海岸 | 3 | 1600×1200 | 10 MB |
-| `christmas-letter` | festival | 圣诞来信 | 2 | 1200×1600 | 5 MB |
-| `new-year-card` | festival | 新年福卡 | 1 | 1200×1600 | 5 MB |
-| `pet-portrait` | life | 毛孩子写真 | 3 | 1200×1600 | 10 MB |
-| `wedding-invite` | portrait | 婚礼邀请 | 2 | 1200×1600 | 10 MB |
-| `minimal-portrait` | portrait | 极简人像 | 1 | 1200×1600 | 10 MB |
-| `coffee-launch` | commerce | 咖啡上新 | 1 | 1200×1600 | 10 MB |
-| `brand-story` | commerce | 品牌主理人 | 2 | 1200×1600 | 10 MB |
+| id | 分类 | 标题 | 类型 | 素材数 | 画布 | 文件上限 | 效果标签 |
+|---|---|---|---|---|---|---|---|
+| `travel-postcard` | travel | 旅行明信片 | IMAGE | 2 | 1600×1200 | 5 MB | travel / warm |
+| `golden-hour` | travel | 黄金时刻 | IMAGE | 2 | 1600×1200 | 10 MB | warm / golden |
+| `film-memory` | creative | 胶片记忆 | IMAGE | 1 | 1200×1600 | 5 MB | film / warm |
+| `summer-coast` | travel | 夏日海岸 | IMAGE | 3 | 1600×1200 | 10 MB | fresh / cool |
+| `christmas-letter` | festival | 圣诞来信 | IMAGE | 2 | 1200×1600 | 5 MB | festival / warm |
+| `new-year-card` | festival | 新年福卡 | IMAGE | 1 | 1200×1600 | 5 MB | festival / warm |
+| `pet-portrait` | life | 毛孩子写真 | IMAGE | 3 | 1200×1600 | 10 MB | bright / warm |
+| `wedding-invite` | portrait | 婚礼邀请 | IMAGE | 2 | 1200×1600 | 10 MB | portrait / soft |
+| `minimal-portrait` | portrait | 极简人像 | IMAGE | 1 | 1200×1600 | 10 MB | portrait / clean |
+| `clear-portrait` | portrait | 清透人像 | IMAGE | 1 | 1200×1600 | 10 MB | portrait / clear |
+| `coffee-launch` | commerce | 咖啡上新 | IMAGE | 1 | 1200×1600 | 10 MB | warm / rich |
+| `brand-story` | commerce | 品牌主理人 | IMAGE | 2 | 1200×1600 | 10 MB | cinematic / warm |
+| `city-walk-15s` | travel | 城市漫游 | VIDEO | 5 | 1080×1920 | 10 MB | warm / cinematic |
 
-封面路径统一为 `/assets/templates/{id}.webp`，由后端 `static/assets/templates/` 提供；`accepted_mime_types` 全部为 `image/jpeg,image/png`。
+封面路径统一为 `/assets/templates/{id}.webp`，由后端 `static/assets/templates/` 提供；`accepted_mime_types` 全部为 `image/jpeg,image/png`。图片模板的 `render_spec` 由 V5 回填，视频模板的 `render_spec` 由 V6 写入；`effect_tags` 仅用于展示，不参与渲染。
+
+> 模板资源：3 个 17³ `.cube` LUT、1 段自制/免版权 AAC 音乐与 13 张封面。来源与许可见 [assets/template-resources.md](assets/template-resources.md)。
 
 ### 6.4 种子 SQL
 
@@ -825,14 +862,15 @@ INSERT INTO simulation_setting
 VALUES (1, 800, 3000, 1200, NULL, 0, 0, 3);
 ```
 
-> 六个分类均有至少 1 个模板；分布为旅行风景 2、创意图片 1、节日营销 2、人像写真 2、生活记录 1、电商海报 2。
-> 翻译种子共 16 行：6 个分类 + 10 个模板，仅 `en-US`；`zh-CN` 直接使用基础列，缺翻译时回退基础列。
+> 六个分类均有至少 1 个模板；分布为旅行风景 4（含 1 个视频）、创意图片 1、节日营销 2、人像写真 3、生活记录 1、电商海报 2。
+> 翻译种子共 19 行：6 个分类 + 13 个模板，仅 `en-US`；`zh-CN` 直接使用基础列，缺翻译时回退基础列。
+> V5 回填 10 个图片模板的 `effect_tags` 与 `render_spec`，新增 `golden-hour`、`clear-portrait`；V6 新增 `city-walk-15s`。种子 SQL 示例只展示 V2 初始 10 个模板，最终状态以 V2 + V5 + V6 为准。
 
 ### 6.5 模板封面文件
 
 - 位置：`backend/src/main/resources/static/assets/templates/{id}.webp`
-- 规格：1200×1600（或画布同比例），WebP quality 82，单张 ≤ 300 KB。
-- 来源：免费可商用图库（Unsplash/Pexels）或自制抽象图；逐张记录作者、链接、许可证到 `backend/src/main/resources/static/assets/CREDITS.md`。
+- 规格：1200×1600（或画布同比例），WebP quality 82，单张 ≤ 300 KB；视频模板封面为 1080×1920 竖版。
+- 来源：`golden-hour`、`clear-portrait`、`city-walk-15s` 为本项目用生成工具自制；其余沿用 V2 的免版权图库素材。来源与许可见 [assets/template-resources.md](assets/template-resources.md)。
 - 禁止使用公司内部素材、付费图库、含可识别人脸却无授权的照片；如使用人像素材，需确保许可允许演示与分发。
 
 ## 7. 迁移与回滚

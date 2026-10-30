@@ -186,6 +186,8 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
 | 422 | `INVALID_IMAGE` | 魔数不符、解码失败、像素超限 |
 | 429 | `RATE_LIMITED` | 登录尝试过多 |
 | 500 | `INTERNAL_ERROR` | 未预期异常 |
+| 500 | `TEMPLATE_SPEC_INVALID` | 模板 `render_spec` 缺失、字段未知、路径越界或参数越界 |
+| 503 | `VIDEO_UNAVAILABLE` | 视频模板提交时 ffmpeg/ffprobe 不可用 |
 | 503 | `SERVICE_UNAVAILABLE` | 数据库/存储不可用、维护中 |
 
 ## 4. 数据结构
@@ -208,11 +210,28 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
 {
   "id": "travel-postcard",
   "title": "旅行明信片",
+  "kind": "IMAGE",
   "category": { "id": "travel", "name": "旅行风景" },
   "coverUrl": "/assets/templates/travel-postcard.webp",
   "description": "把两张旅途照片拼成一张可以寄出的明信片。",
   "requiredImageCount": 2,
-  "canvas": { "width": 1600, "height": 1200 }
+  "canvas": { "width": 1600, "height": 1200 },
+  "effectTags": ["travel", "warm"],
+  "output": { "kind": "IMAGE", "durationMs": null, "width": 1600, "height": 1200, "hasAudio": false }
+}
+```
+
+视频模板示例：
+
+```json
+{
+  "id": "city-walk-15s",
+  "title": "城市漫游",
+  "kind": "VIDEO",
+  "effectTags": ["warm", "cinematic"],
+  "requiredImageCount": 5,
+  "canvas": { "width": 1080, "height": 1920 },
+  "output": { "kind": "VIDEO", "durationMs": 15000, "width": 1080, "height": 1920, "hasAudio": true }
 }
 ```
 
@@ -231,11 +250,14 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
 {
   "id": "travel-postcard",
   "title": "Travel Postcard",
+  "kind": "IMAGE",
   "category": { "id": "travel", "name": "Travel & Landscape" },
   "coverUrl": "/assets/templates/travel-postcard.webp",
   "description": "Turn two travel photos into a postcard you can send.",
   "requiredImageCount": 2,
-  "canvas": { "width": 1600, "height": 1200 }
+  "canvas": { "width": 1600, "height": 1200 },
+  "effectTags": ["travel", "warm"],
+  "output": { "kind": "IMAGE", "durationMs": null, "width": 1600, "height": 1200, "hasAudio": false }
 }
 ```
 
@@ -321,14 +343,37 @@ Set-Cookie: framelab_rt=<opaque>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Ag
   "currentStage": "FINALIZE",
   "result": {
     "available": true,
+    "kind": "IMAGE",
+    "mimeType": "image/jpeg",
     "url": "/api/tasks/0f0c8f5e-7a2d-4b9c-9a61-2d8f3b6c1e44/result",
+    "posterUrl": null,
     "width": 1600,
-    "height": 1200
+    "height": 1200,
+    "durationMs": null,
+    "sizeBytes": 425612
   }
 }
 ```
 
-> TaskSummary 的结果不含 `sizeBytes`，但包含受保护的 `url`，列表卡片可直接按需取图；TaskDetail 返回完整结果元数据。
+视频结果：
+
+```json
+{
+  "result": {
+    "available": true,
+    "kind": "VIDEO",
+    "mimeType": "video/mp4",
+    "url": "/api/tasks/b1fa3b3e-ca5a-47b8-b3be-c93b305b75fd/result",
+    "posterUrl": "/api/tasks/b1fa3b3e-ca5a-47b8-b3be-c93b305b75fd/result/poster",
+    "width": 1080,
+    "height": 1920,
+    "durationMs": 15000,
+    "sizeBytes": 2937956
+  }
+}
+```
+
+> TaskSummary 的结果不含 `sizeBytes`（列表页为 `null`），但包含受保护的 `url` 与视频 `posterUrl`，列表卡片可直接按需取封面；TaskDetail 返回完整结果元数据。
 
 ### 4.5 TaskDetail
 
@@ -651,20 +696,33 @@ Location: /api/tasks/0f0c8f5e-7a2d-4b9c-9a61-2d8f3b6c1e44
 
 - 需要登录且为任务所有者；他人/不存在 `404 TASK_NOT_FOUND`。
 - 任务未成功：`409 TASK_NOT_READY`。
-- `200`：JPEG 二进制。
+- `200`：按 `task.result_mime_type` 返回 `image/jpeg` 或 `video/mp4` 二进制。
 
 ```text
-Content-Type: image/jpeg
+Content-Type: image/jpeg | video/mp4
 Cache-Control: private, max-age=86400
+Accept-Ranges: bytes
 ETag: W/"<task-id>-result"
 X-Content-Type-Options: nosniff
-Content-Disposition: inline; filename="framelab-<taskId 前 8 位>.jpg"
+Content-Disposition: inline; filename="framelab-<taskId 前 8 位>.jpg|.mp4"
 ```
 
 - 支持 `If-None-Match` → `304`。
+- 视频结果支持 `Range: bytes=start-end`：
+  - `206 Partial Content` + `Content-Range: bytes start-end/total` + `Content-Length`；
+  - 单段 Range 合法但超出文件末尾 → `416 Range Not Satisfiable` + `Content-Range: bytes */total`；
+  - 无 Range 或 `bytes=0-` → `200` 全量。
+- 图片结果忽略 Range，始终 `200` 全量。
 - 结果不可变；成功后重复读取返回同一文件。
 
-### 7.5 重试与续跑的可见语义
+### 7.5 GET `/api/tasks/{id}/result/poster`
+
+- 仅视频任务；需要登录且为任务所有者。
+- `200`：JPEG 封面（视频首帧），`Cache-Control: private, max-age=86400`，`ETag: W/"<task-id>-poster"`，支持 `If-None-Match` → `304`。
+- 图片任务、未成功或封面缺失：`404 NOT_FOUND`。
+- 前端结果弹层用 `poster` 占位，避免视频加载前出现黑屏；封面与视频同样受鉴权保护。
+
+### 7.6 重试与续跑的可见语义
 
 | 场景 | 响应表现 | 前端行为 |
 |---|---|---|

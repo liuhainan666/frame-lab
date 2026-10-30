@@ -236,7 +236,10 @@
 - 信息层（距底 16px、左右 16px）：
   - 标题 14px/500 白；最多两行，超出省略（中文通常一行，英文允许两行）。
   - 元信息 12px：`2 张素材` + 分隔点 + 分类名，颜色 rgba(255,255,255,.72)。
+- 左上角徽标行（可选）：11px，深色半透明底，圆角 full；图片模板显示“图片”，视频模板显示“视频” + 播放图标，不抢标题。
 - 左上角分类小标签（可选）：11px，深色半透明底，圆角 full，不抢标题。
+- 效果标签：卡片底部元信息上方展示 1～2 个效果标签（如 `暖调`、`电影感`），11px、`--text-secondary`，来自模板 `effectTags`；不展示原始英文 key。
+- 视频模板：右上角圆形按钮换为播放图标；底部信息追加 `15 秒`（mono）；封面保持 3:4 竖版。
 - 右上角圆形箭头按钮：36px，`--accent` 背景 + 深色箭头；默认 `opacity:0; translateY(4px)`；hover/focus 显现；仅视觉，点击仍由整卡链接处理。用 `<span aria-hidden="true">` 渲染，不嵌套 `<button>`，避免交互元素嵌套。
 - 卡片 hover：边框 `--accent-border`，`translateY(-2px)`，阴影 `--shadow-card`；focus-visible：2px 橄榄外环，offset 2px。
 - 图片 `loading="lazy" decoding="async"`，容器固定比例防抖动；加载时显示 `--surface-2` 骨架微光。
@@ -281,7 +284,9 @@
 ### 6.2 左栏：模板与上传
 
 - 封面：圆角 16px，边框 1px，比例由 `canvas` 决定（4:3 或 3:4），`object-fit: cover`；下方 20px 间距。
-- 分类胶囊（只读，小号）+ 标题（h1 26～32px）+ 描述（body，`--text-secondary`，最多 2 行，超出省略但不藏关键信息）。
+- 分类胶囊（只读，小号）+ 类型徽标（图片/视频）+ 标题（h1 26～32px）+ 描述（body，`--text-secondary`，最多 2 行，超出省略但不藏关键信息）。
+- 效果摘要：标题下方一行 `模板效果` + 效果标签（映射为中文/英文，如 `暖调`、`电影感`）；不展示 `render_spec` 原始字段。
+- 输出摘要：视频模板显示 `15 秒视频 · 1080×1920 · 含背景音乐`；图片模板不显示该行。数据来自模板 `output`。
 - 要求行：三个信息块横排或换行：
   - `2 张图片`
   - `JPG / PNG`
@@ -302,7 +307,7 @@
 - 文件大小/类型：前端即时校验；采用模板接口返回的 `maxFileSizeBytes` 与 `acceptedMimeTypes`；不要写死 5MB。
 - 主按钮：
   - 高 48px，圆角 14px，全宽；背景 `linear-gradient(180deg, var(--accent-hover), var(--accent) 55%, var(--accent-pressed))`；文字 `--accent-ink` 14px/600；阴影内高光 `inset 0 1px 0 rgba(255,255,255,.35)`。
-  - 默认文案 `开始制作`，右侧箭头 16px，间距 8px；英文 `Start creating`；hover 上移 1px/亮度 +3%；active 下压 1px；focus-visible 外环。
+  - 默认文案 `开始制作`，右侧箭头 16px，间距 8px；英文 `Start creating`；视频模板默认 `生成视频` / `Create video`；hover 上移 1px/亮度 +3%；active 下压 1px；focus-visible 外环。
   - 未满足条件：背景 `--surface-2`、文字 `--text-disabled`、无阴影；下方 12px 说明缺什么（“还差 1 张图片”）。
   - 提交中：按钮内 16px spinner + `正在提交…`，禁用；不接受重复点击。
   - 幂等：点击时生成 `clientRequestId`，同一次提交的网络重试复用同一个值；收到 202/200 后清空，下一次主动制作生成新值。网络错误时按钮显示“重试提交”，仍复用原值。
@@ -324,7 +329,7 @@
 | `QUEUED`（`resumeCount>0`） | 同上 + 顶部 2px 琥珀细线 | “正在恢复” + `服务重启，将从断点继续` + 当前阶段 | 查看详情 |
 | `RUNNING` | 模板封面 18% 可见 + 顶部微光扫过（reduced-motion 关闭） | 三步节点（当前节点橄榄色脉冲）+ 当前阶段文案 + 第 N 次尝试 + 已用时 | 查看详情 |
 | `RETRYING` | 深色底 + 2px 琥珀线 + 缓慢呼吸的等待图标（reduced-motion 关闭） | “等待重试” + 失败阶段 + `已尝试 1/3 次` + 最近失败原因（1 行）+ 预计几秒后重试 | 查看详情 |
-| `SUCCEEDED` | 结果图铺满 | 右上角 success 对勾；底部渐变 + “已完成 · 14:32” + hover “查看结果” | 打开结果预览 |
+| `SUCCEEDED` | 结果图铺满；视频用 poster 封面 + 播放角标 + 时长 | 右上角 success 对勾；底部渐变 + “已完成 · 14:32” + hover “查看结果” | 打开结果预览 |
 | `FAILED` | 深色底 + 顶部 2px 珊瑚线 | 珊瑚图标 + 阶段名 + 原因（2 行截断）+ 尝试次数 + 创建时间 | 打开任务详情 |
 | 查询异常（列表级） | 不改变卡片状态 | 顶部常驻 warning toast：“任务状态暂时无法更新” + `重试`；活跃卡片右上角 amber 小点 | 手动重试 |
 | 空 | 面板占满右栏高度 320px | “还没有制作记录” + “上传素材后开始第一个任务” | — |
@@ -340,8 +345,10 @@
 
 - 使用 Radix Dialog；遮罩 `rgba(0,0,0,.72)` + `backdrop-filter: blur(6px)`；面板半径 24px，`--surface`，1px 边框，`--shadow-panel`。
 - 图片 `object-fit: contain`，最大高 70vh；背景 `--bg`；四周 24px。
-- 顶部：模板标题 + 完成时间（mono）+ 关闭按钮；底部：`1600 × 1200 · 2.4 MB` + 任务短码；不提供下载。
-- 图片使用鉴权 Blob；加载中骨架，失败时“结果加载失败” + 重试。
+- 视频：`<video controls playsInline preload="metadata" poster={封面 Blob}>`，最大高 70vh，保持 9:16；不自动播放；加载中显示封面骨架，失败显示“视频加载失败” + 重试。
+- 顶部：模板标题 + 完成时间（mono）+ 关闭按钮；底部：图片 `1600 × 1200 · 2.4 MB`，视频 `1080 × 1920 · 15 秒 · 2.8 MB` + 任务短码；不提供下载。
+- 图片与视频均使用鉴权 Blob（先 `fetch` 再 `URL.createObjectURL`）；CSP 必须允许 `img-src blob:` 与 `media-src blob:`。
+- 打开与关闭时创建/释放 Object URL；切换任务或关闭弹层时 `URL.revokeObjectURL`，避免内存泄漏。
 
 ## 7. 登录页
 
@@ -415,6 +422,9 @@
 | 等待重试 | 琥珀 + 呼吸图标 | `等待重试 · 约 4 秒后` + `已尝试 1/3 次` + 最近原因 | 查看详情 |
 | 重试成功 | 结果图 + 对勾 | `已完成 · 14:32`（详情保留失败尝试） | 查看结果 |
 | 成功 | 结果图 + 对勾 | `已完成 · 14:32` | 查看结果 |
+| 视频加载中 | 封面 + 中央 spinner | `视频加载中` | — |
+| 视频加载失败 | 封面 + 珊瑚提示 | `视频加载失败，请重试` | 重试 |
+| 视频不可用 | 提交时 503 | `视频渲染暂不可用，请稍后再试` | 稍后重试 |
 | 失败 | 珊瑚 + 阶段 | `生成失败：模拟失败：生成阶段按演示配置终止` + `已尝试 3 次` | 查看详情 |
 | 查询异常 | 顶部 amber 常驻 toast | `任务状态暂时无法更新，已保留最后一次结果` | 重试 |
 | 登录过期 | 顶部提示 + 跳转 | `登录已过期，请重新登录` | 登录 |
@@ -439,9 +449,10 @@
 | `Button` | primary / secondary / ghost / danger / icon | 高 40；主按钮 48（表单/CTA）；禁用、loading、focus |
 | `Input` | default / focus / error / disabled | 高 40；标签常显；错误 `aria-describedby` |
 | `Chip` | default / selected / disabled | 高 34；`aria-pressed` |
-| `TemplateCard` | skeleton / default / hover / focus | 3:4；整卡链接；标题遮罩；英文最多两行 |
+| `TemplateCard` | skeleton / default / hover / focus / image / video | 3:4；整卡链接；标题遮罩；类型/效果标签；视频时长；英文最多两行 |
 | `UploadSlot` | empty / filled / uploading / error / uploaded | 4:3；文件输入隐藏但可键盘触发；进度 `role=progressbar` |
-| `TaskCard` | queued / resuming / running / retrying / success / failed / stale | 3:4；状态四要素；无删除/重做 |
+| `TaskCard` | queued / resuming / running / retrying / success / failed / stale / video | 3:4；状态四要素；视频 poster + 时长；无删除/重做 |
+| `VideoResult` | loading / ready / error | `<video controls playsInline preload="metadata" poster>`；鉴权 Blob；错误可重试 |
 | `StageStepper` | pending / active / done / failed / skipped | 3 节点；当前脉冲；reduced-motion 关闭 |
 | `AttemptList` | collapsed / expanded / empty | 尝试序号、状态、时间、错误码、本地化原因；`INTERRUPTED` 单独标注 |
 | `RetryBadge` | waiting / exhausted / none | `第 N/M 次尝试`；等待时显示下次重试时间 |
@@ -508,9 +519,10 @@
 
 | 类型 | 规格 |
 |---|---|
-| 模板封面 | 1200×1600 或与画布同比例；WebP q82；≤300 KB；无文字水印 |
+| 模板封面 | 1200×1600 或与画布同比例；WebP q82；≤300 KB；无文字水印；视频模板用 1080×1920 竖版 |
 | 用户上传 | JPEG/PNG；≤模板上限；最长边 4096；服务端重编码 |
-| 结果 | JPEG q0.9；画布尺寸；≤4096²；右下角英文水印 |
+| 图片结果 | JPEG q0.9；画布尺寸；≤4096²；右下角英文水印 |
+| 视频结果 | H.264 + AAC，MP4 faststart；1080×1920/30fps/15s；poster JPEG；右下角英文水印 |
 | 品牌 | 内联 SVG 标记；不依赖位图 logo |
 | 图标 | lucide-react，1.6～1.75 线宽，16/20/24px |
 | 空态插画 | 线性图标 + 几何底纹，不用人物插画 |
@@ -529,3 +541,6 @@
 - 不在前端计算任务进度百分比；阶段节点只表达三步位置。
 - 不在前端保存任务历史；刷新后从 API 恢复。
 - 不在前端把 `nextRetryAt` 换算成新的任务状态；重试倒计时只是展示，状态始终以服务端为准。
+- 视频与图片结果都用鉴权 `fetch` 转 Blob URL；`next.config.ts` 的 CSP 必须包含 `img-src 'self' blob: data: {backend}` 与 `media-src 'self' blob:`，否则浏览器会拦截 `<video>`。
+- 结果视频使用 `<video controls playsInline preload="metadata">`，不自动播放；`poster` 为鉴权封面的 Blob，弹层关闭时释放所有 Object URL。
+- 模板类型/时长/效果标签全部来自 API，不在前端硬编码模板清单；效果标签 key 的显示名走词典，未知 key 原样显示。

@@ -105,24 +105,30 @@ template 1 ──── n template_translation
 |---|---|---|
 | `id` | slug，如 `travel-postcard` | 稳定、不可变；URL 使用它 |
 | `category_id` | 所属分类 | 必须存在 |
+| `kind` | 模板类型 | `IMAGE` / `VIDEO`；默认 `IMAGE` |
 | `title` | 标题 | 1～80 字符 |
 | `description` | 一句话描述 | 1～500 字符 |
 | `cover_path` | 封面公开路径 | 形如 `/assets/templates/travel-postcard.webp` |
-| `required_image_count` | 需要的素材张数 | 1～5，提交时必须**精确等于** |
+| `required_image_count` | 需要的素材张数 | 1～5，提交时必须**精确等于**；视频模板为 3～5 |
 | `accepted_mime_types` | 允许的 MIME | 逗号分隔，必须是 `image/jpeg`、`image/png` 的非空子集 |
 | `max_file_size_bytes` | 单文件上限 | 1 MB～10 MB；P0 默认 10 MB |
-| `canvas_width` / `canvas_height` | 结果画布像素 | 64～4096；默认 1200 × 1600 |
+| `canvas_width` / `canvas_height` | 结果画布像素 | 64～4096；视频模板为输出分辨率（≤1080×1920） |
+| `render_spec` | 版本化渲染参数 JSON | 仅 `version=1`；按 `kind` 解析为图片/视频 spec；写入时快照到任务 |
+| `effect_tags` | 效果标签 JSON 数组 | 展示用，如 `["travel","warm"]`；不参与渲染 |
+| `output_kind` | 输出类型 | `IMAGE` / `VIDEO`；与 `kind` 对应 |
 | `sort_order` | 列表排序 | 升序 |
 | `is_published` | 是否上架 | 仅上架模板出现在列表、详情与提交校验中 |
 
 规则：
 
 1. 模板是种子数据，P0 不提供 CRUD；`is_published` 仅供运维改库演示。
-2. 任务创建时把 `title / cover_path / canvas_width / canvas_height` 快照到任务；之后模板改名、下架、改画布都不影响已创建任务。
+2. 任务创建时把 `kind / title / cover_path / canvas_width / canvas_height / render_spec / output_kind` 快照到任务；之后模板改名、下架、改画布或改 spec 都不影响已创建任务。
 3. 模板列表只返回上架模板；详情对下架模板返回 404。
 4. 模板封面是公开资源，可按 slug 长缓存；上传素材与结果永远不公开。
 5. `title` / `description` 基础列是 `zh-CN` 文案；`template_translation` 按 `locale` 提供其他语言。列表与详情按请求语言取翻译，缺翻译时回退基础列。
-6. 任务详情的模板标题：模板仍存在时，取当前语言翻译；缺翻译取基础列；模板不存在时用任务快照。封面、画布、素材始终用快照。
+6. 任务详情的模板标题：模板仍存在时，取当前语言翻译；缺翻译取基础列；模板不存在时用任务快照。封面、画布、素材、类型与 spec 始终用快照。
+7. `render_spec` 在模板读取时由 `TemplateRenderSpecParser` + `TemplateRenderSpecValidator` 校验；非法 spec 返回 500 `TEMPLATE_SPEC_INVALID`，不进入任务流水线。资源引用只允许 `luts/`、`audio/`、`overlays/` 下的 classpath 相对路径，禁止 URL 与路径穿越。
+8. 图片模板的 spec 提供调色、轻人像、全局效果与版式参数；视频模板提供槽位时长、转场、运动、音乐、文字与画质参数。`layout=legacy` 表示沿用 1～3 张的固定版式。
 
 ## 5. 素材资产
 
@@ -180,7 +186,10 @@ template 1 ──── n template_translation
 | `id` | UUID；对外唯一标识 |
 | `user_id` | 所有者 |
 | `template_id` | 模板引用 |
+| `template_kind` | 模板类型快照：`IMAGE` / `VIDEO` |
 | `template_title` / `template_cover_path` / `canvas_width` / `canvas_height` | 创建时快照 |
+| `render_spec_snapshot` | 创建时的完整渲染 spec JSON；决定效果与视频节奏 |
+| `output_kind` | 输出类型快照：`IMAGE` / `VIDEO` |
 | `client_request_id` | 前端生成的 UUID，用于提交幂等 |
 | `status` | `QUEUED` / `RUNNING` / `RETRYING` / `SUCCEEDED` / `FAILED` |
 | `current_stage` | 当前或最后阶段；从未开始的新任务为 `NULL`，恢复后的 `QUEUED` 保留最后阶段 |
@@ -192,6 +201,9 @@ template 1 ──── n template_translation
 | `failure_code` / `failure_args` / `failure_detail` | 仅 `FAILED` 时非空；`code` 稳定，`args` 为本地化参数，`detail` 为技术诊断 |
 | `failure_simulated` | 是否由模拟注入导致 |
 | `result_storage_key` / `result_width` / `result_height` / `result_size_bytes` | 仅 `SUCCEEDED` 时非空 |
+| `result_mime_type` | `image/jpeg` 或 `video/mp4`；成功时必填 |
+| `result_poster_key` | 视频结果的封面 JPEG 存储键；图片为 `NULL` |
+| `result_duration_ms` | 视频时长毫秒；仅视频成功时非空 |
 | `created_at` / `started_at` / `finished_at` | UTC；`started_at` 首次认领时写入，`finished_at` 仅在终态写入 |
 | `updated_at` | UTC；任一字段变化时由数据库更新，用于前端判断快照新旧 |
 | `row_version` | 乐观锁版本，每次状态写入 +1 |
@@ -250,6 +262,8 @@ BEGIN
        b. 存在但载荷不一致 → 409 IDEMPOTENCY_KEY_REUSED，不创建新任务
        c. 不存在 → 继续
   2. 校验模板存在且已上架（否则 404）
+  2a. 解析并校验模板 `render_spec`；视频模板额外确认 ffmpeg/ffprobe 可用
+       （不可用 → 503 VIDEO_UNAVAILABLE，不创建任务）
   3. 校验 assetIds 数量 == required_image_count，且无重复
   4. 校验每个素材属于当前用户（否则 404 ASSET_NOT_FOUND）
   5. INSERT task（QUEUED, current_stage=NULL, max_step_attempts=配置值）
@@ -300,6 +314,10 @@ COMMIT
 | BR-24 | `RETRYING` 与 `QUEUED`、`RUNNING` 一样属于活跃状态，前端必须继续轮询。 |
 | BR-25 | 消息与模板文案按请求语言渲染；任务只存稳定码与参数，不存翻译结果。 |
 | BR-26 | 同一任务可在不同语言下被读取；语言切换不得改变任务状态、失败码、重试或续跑行为。 |
+| BR-27 | 模板类型在受理时快照；`IMAGE` 走 Java2D 特效/版式管线，`VIDEO` 走 ffmpeg 照片轮播管线，任务生命周期不变。 |
+| BR-28 | 图片效果顺序固定为：白平衡/曝光/对比/饱和/高光阴影 → LUT → 清晰度 → 轻人像 → 合成 → 暗角/颗粒/泛光 → 水印 → JPEG；同一任务同输入必须得到稳定结果。 |
+| BR-29 | 视频成功必须有 MP4、封面 JPEG、宽高、时长与 `video/mp4`；缺一项不得置 `SUCCEEDED`。视频结果必须支持 Range 读取与 poster 接口。 |
+| BR-30 | 视频文字层与品牌水印只使用 ASCII 与内置字体；模板文案按 `en-US` 解析（`Locale.US`），避免容器缺中文字形。 |
 
 ## 8. 任务状态机
 
@@ -383,19 +401,18 @@ SKIPPED：仅当前序失败且任务进入 FAILED 时，由后续步骤从 PEND
 
 | 阶段 | 输入 | 工作 | 输出 | 可注入失败 |
 |---|---|---|---|---|
-| `MATERIAL_CHECK` | 任务快照、素材列表 | 等待配置耗时；复核数量、文件存在、可解码、尺寸；生成素材摘要 | `message_args={checked,required}`；task.current_stage | `MATERIAL_CHECK_FAILED` |
-| `GENERATE` | 素材摘要、画布参数 | 等待配置耗时；计算版式（1/2/3 张的槽位）；不调用任何外部服务 | `message_args={width,height}`；task.current_stage | `GENERATION_FAILED` |
-| `FINALIZE` | 素材文件、版式、画布 | 等待配置耗时；Java2D 合成、绘制英文水印与任务短码；写临时文件、原子移动、更新任务结果 | 结果文件、宽高、字节数；step3 SUCCEEDED；task SUCCEEDED | `RESULT_RENDER_FAILED` / `STORAGE_UNAVAILABLE` |
+| `MATERIAL_CHECK` | 任务快照、素材列表 | 等待配置耗时；复核数量、文件存在、可解码、尺寸；视频模板确认 spec、槽位数与 ffmpeg 可用；生成素材摘要 | `message_args={checked,required}`；task.current_stage | `MATERIAL_CHECK_FAILED` / `VIDEO_UNAVAILABLE` |
+| `GENERATE` | 素材摘要、画布参数、spec 快照 | 等待配置耗时；图片模板计算版式与效果参数；视频模板校验槽位、时长与转场方程；不调用任何外部服务 | `message_args={width,height}`；task.current_stage | `GENERATION_FAILED` / `VIDEO_INPUT_INVALID` |
+| `FINALIZE` | 素材文件、spec、画布 | 等待配置耗时；图片走调色/人像/合成并绘制英文水印；视频调用 ffmpeg 生成 MP4 与封面，ffprobe 复核；写临时文件、原子移动、更新任务结果 | 结果文件、MIME、封面、宽高、时长、字节数；step3 SUCCEEDED；task SUCCEEDED | `RESULT_RENDER_FAILED` / `VIDEO_RENDER_FAILED` / `VIDEO_TIMEOUT` / `VIDEO_OUTPUT_INVALID` / `STORAGE_UNAVAILABLE` |
 
 规则：
 
 1. 每个阶段开始执行前，attempt 与步骤 `RUNNING` 必须已由**认领事务**或**前一步成功事务**提交；随后执行耗时工作，结束时再开事务写结果。**禁止在事务中睡眠或渲染**。
 2. 模拟耗时在每个阶段开始时读取，修改配置只影响尚未开始的阶段。
 3. 结果合成规则固定、可重复：
-   - 1 张素材：铺满画布，底部渐变遮罩 + 英文水印。
-   - 2 张素材：左右各 50%，中间 12px 留白。
-   - 3 张素材：上方 62% 一张，下方 38% 两张并排。
-   - 统一在右下角绘制 `FRAMELAB · {taskId 前 8 位}`，字体为打包的 OFL 英文字体。
+   - 图片模板：按 spec 对每个槽位做 cover 裁切、调色与轻人像，再按 `layout` 合成；`legacy` 版式为 1 张铺满 / 2 张左右 50% / 3 张上 62% 下 38%。
+   - 视频模板：每张素材按槽位时长与运动生成片段，转场总时长满足 `durationMs = Σ槽位时长 − Σ转场时长`，叠加 LUT、文字、水印与 AAC 音乐，输出 H.264/MP4。
+   - 统一在右下角绘制 `FRAMELAB · {taskId 前 8 位}`，字体为打包的 OFL 英文字体；视频文字层同样只使用 ASCII。
 4. 结果只写一次；若任务已是终态，任何迟到的写入必须拒绝（`WHERE status='RUNNING'`）。
 5. 步骤每次执行都从该步骤开头重来；已成功的前序步骤不重跑，步骤内部结果不跨尝试复用。
 6. 成功消息不保存句子，只保存 `message_args`；展示时按 `task.step.<STAGE>.succeeded` 与请求语言渲染。
@@ -408,7 +425,12 @@ SKIPPED：仅当前序失败且任务进入 FAILED 时，由后续步骤从 PEND
 |---|---|---|---|---|
 | `MATERIAL_CHECK_FAILED` | MATERIAL_CHECK | 数量不符、文件缺失、无法解码、模拟注入 | 否 | ✓ |
 | `GENERATION_FAILED` | GENERATE | 模拟注入、版式计算异常 | 否（模拟可标记为可重试） | ✓ |
-| `RESULT_RENDER_FAILED` | FINALIZE | 合成异常、字体加载失败 | 是 | ✓ |
+| `RESULT_RENDER_FAILED` | FINALIZE | 图片合成异常、字体加载失败 | 是 | ✓ |
+| `VIDEO_UNAVAILABLE` | 提交期 / MATERIAL_CHECK | ffmpeg 或 ffprobe 缺失、不可执行 | 否（提交期 503 / 任务失败） | ✗ |
+| `VIDEO_INPUT_INVALID` | MATERIAL_CHECK / GENERATE | 视频 spec 非法、素材槽位不足、资源缺失 | 否 | ✗ |
+| `VIDEO_RENDER_FAILED` | FINALIZE | ffmpeg 非零退出、进程启动失败 | 是 | ✓ |
+| `VIDEO_TIMEOUT` | FINALIZE | ffmpeg 超过配置超时（默认 180s） | 是 | ✓ |
+| `VIDEO_OUTPUT_INVALID` | FINALIZE | ffprobe 复核失败：编码/分辨率/时长不符 | 否 | ✗ |
 | `STORAGE_UNAVAILABLE` | 任意 | 磁盘写满、权限错误、原子移动失败 | 是 | ✗ |
 | `INTERNAL_ERROR` | 任意 | 未捕获异常 | 是 | ✗ |
 
@@ -492,6 +514,7 @@ SKIPPED：仅当前序失败且任务进入 FAILED 时，由后续步骤从 PEND
 | 上传素材 | 所有者 | 所有者上传/删除 | 404 |
 | 任务与步骤 | 所有者 | 仅 worker 与提交服务 | 404 |
 | 任务结果 | 所有者 | 仅 worker | 404 |
+| 视频封面 | 所有者 | 仅 worker | 404 |
 | 模拟配置 | ADMIN | ADMIN | 403 |
 
 实现要求：
@@ -511,6 +534,7 @@ SKIPPED：仅当前序失败且任务进入 FAILED 时，由后续步骤从 PEND
 | 步骤尝试 | 与任务同寿命 | 不单独删除；用于审计与重试历史 |
 | 模板 / 分类翻译 | 与模板同寿命 | 随种子维护；缺失时回退中文 |
 | 结果文件 | 与任务同寿命 | 不单独删除 |
+| 视频渲染临时目录 | 单次 FINALIZE | 系统临时目录下的独立工作区，成功/失败/超时后均递归删除 |
 | 模拟配置 | 永久单行 | 不删除，可重置为默认值 |
 
 ## 15. 枚举汇总
@@ -521,10 +545,14 @@ UserStatus:   ACTIVE | DISABLED
 
 TaskStatus:   QUEUED | RUNNING | RETRYING | SUCCEEDED | FAILED
 TaskStage:    MATERIAL_CHECK | GENERATE | FINALIZE
+TemplateKind: IMAGE | VIDEO
+OutputKind:   IMAGE | VIDEO
 StepStatus:   PENDING | RUNNING | SUCCEEDED | FAILED | SKIPPED
 AttemptStatus: RUNNING | SUCCEEDED | FAILED | INTERRUPTED
 
 FailureCode:  MATERIAL_CHECK_FAILED | GENERATION_FAILED | RESULT_RENDER_FAILED
+              | VIDEO_UNAVAILABLE | VIDEO_INPUT_INVALID | VIDEO_RENDER_FAILED
+              | VIDEO_TIMEOUT | VIDEO_OUTPUT_INVALID
               | STORAGE_UNAVAILABLE | INTERNAL_ERROR
 
 Locale:       zh-CN | en-US

@@ -1,6 +1,6 @@
 # FrameLab · 素材制作平台
 
-深色画廊风格的素材制作网站：浏览模板、上传照片、提交三步异步制作任务，在处理期间继续浏览，最后查看个人历史与结果。前端 Next.js，后端 Spring Boot 3 + Spring Security + MyBatis，MySQL 8.4 持久化。
+深色画廊风格的素材制作网站：浏览模板、上传照片、提交三步异步制作任务，在处理期间继续浏览，最后查看个人历史与结果。图片模板带预设调色与轻人像，视频模板把照片渲染为 15 秒 MP4。前端 Next.js，后端 Spring Boot 3 + Spring Security + MyBatis，MySQL 8.4 持久化，视频使用 ffmpeg。
 
 - 验收 commit：`dc06422`（容器与 CI 位于 `004eebe..22ef184`；干净环境证据见 [docs/evidence/m8-acceptance.md](docs/evidence/m8-acceptance.md)）
 - 视觉证据：[docs/assets/visual](docs/assets/visual)
@@ -18,6 +18,8 @@
 | 安全 | Spring Security + Nimbus JOSE JWT | Security 6.4 / Nimbus 9.37.3 |
 | 持久层 | MyBatis | 3.0.5 |
 | 数据库 | MySQL / Flyway | 8.4 / Boot 管理版本 |
+| 图片渲染 | Java2D + `.cube` LUT | 无额外运行时 |
+| 视频渲染 | ffmpeg / ffprobe | 本机 8.1.2；镜像内由 apt 安装 |
 | 运行时 | Node / pnpm | 容器 Node 22，本机 Node 24 / pnpm 12.16.1 |
 | 交付 | Docker Compose / GitHub Actions | Compose v2+；workflow 见 `.github/workflows/ci.yml` |
 
@@ -25,9 +27,11 @@
 
 ```text
 .
-├─ backend/                     Spring Boot API、worker、Java2D 渲染
+├─ backend/                     Spring Boot API、worker、Java2D/ffmpeg 渲染
 │  ├─ src/main/java/com/framelab/
-│  ├─ src/main/resources/db/migration/   V1 表结构、V2 种子
+│  ├─ src/main/resources/db/migration/   V1 表结构、V2 种子、V3 会话安全、V4 模板/任务扩展、V5/V6 模板种子
+│  ├─ src/main/resources/templates/      LUT、视频音乐、渲染资源
+│  ├─ src/main/resources/static/assets/  模板封面
 │  ├─ src/main/resources/mapper/         MyBatis XML
 │  ├─ src/test/                         单元 + Testcontainers 集成测试
 │  ├─ Dockerfile / .dockerignore
@@ -48,7 +52,7 @@
 
 ## 3. 快速开始
 
-要求：Docker Desktop / Engine + Compose v2。
+要求：Docker Desktop / Engine + Compose v2。视频模板需要 ffmpeg，镜像内已安装；本机开发需自行安装 `ffmpeg`/`ffprobe`（或在 `.env` 关闭 `FRAMELAB_FFMPEG_ENABLED`，此时仅视频模板不可用）。
 
 ```bash
 cp .env.example .env
@@ -99,7 +103,7 @@ cd backend
 ./mvnw spring-boot:run
 ```
 
-Windows 需设置 `JAVA_HOME` 指向 JDK 21；本仓库测试使用 `./mvnw verify`。
+Windows 需设置 `JAVA_HOME` 指向 JDK 21；本仓库测试使用 `./mvnw verify`。视频模板还要求本机 `ffmpeg -version` 可用（Windows 可 `winget install Gyan.FFmpeg` 或使用镜像）。
 
 ### 4.3 前端
 
@@ -132,6 +136,11 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 | `FRAMELAB_RETRY_MAX_STEP_ATTEMPTS` | `3` | 每步尝试上限快照 |
 | `FRAMELAB_RETRY_BACKOFF_BASE_SECONDS` | `2` | 退避基数，实际 `min(base×2^(n-1), max)` |
 | `FRAMELAB_RETRY_BACKOFF_MAX_SECONDS` | `30` | 退避上限 |
+| `FRAMELAB_FFMPEG_ENABLED` | `true` | 视频渲染开关；关闭时视频模板提交返回 503 |
+| `FRAMELAB_FFMPEG_BINARY` / `FRAMELAB_FFMPEG_PROBE` | `ffmpeg` / `ffprobe` | 可执行文件路径 |
+| `FRAMELAB_FFMPEG_TIMEOUT` | `180s` | 单次视频渲染超时 |
+| `FRAMELAB_FFMPEG_MAX_CONCURRENT` | `1` | 本实例并发生成数 |
+| `FRAMELAB_FFMPEG_MAX_OUTPUT_BYTES` | `209715200` | 输出上限（200 MB） |
 | `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:8080` | 浏览器访问 API 的地址，构建时内联 |
 | `FRONTEND_PORT` | `3000` | Compose 前端宿主端口 |
 
@@ -139,7 +148,8 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 
 ## 6. 数据库
 
-- 迁移：`V1__schema.sql`（用户、模板、素材、任务、步骤、尝试、模拟配置）、`V2__seed.sql`（演示账号、分类、模板、模拟默认值）、`V3__session_security.sql`（令牌版本、刷新家族、轮换链）。
+- 迁移：`V1__schema.sql`（用户、模板、素材、任务、步骤、尝试、模拟配置）、`V2__seed.sql`（演示账号、分类、模板、模拟默认值）、`V3__session_security.sql`（令牌版本、刷新家族、轮换链）、`V4__template_effects_video.sql`（模板类型/spec、任务快照、视频结果字段）、`V5__template_effect_seed.sql`（图片效果与 2 个新模板）、`V6__video_template_seed.sql`（15 秒视频模板）。
+- 最终种子：6 个分类、13 个模板（12 图片 + 1 视频）、3 个演示账号、单行模拟配置。
 - 启动时 Flyway 自动执行；不需要手工建表或导入 SQL。
 - 重置演示数据（会删除任务、素材与结果）：
 
@@ -166,7 +176,8 @@ docker compose up --build
 | GET/DELETE | `/api/assets/{id}/content` / `/api/assets/{id}` | 鉴权读取/删除素材 |
 | POST | `/api/tasks` | 提交任务，`clientRequestId` 幂等 |
 | GET | `/api/tasks` / `/api/tasks/{id}` | 当前用户任务列表/详情 |
-| GET | `/api/tasks/{id}/result` | 鉴权读取结果 JPEG |
+| GET | `/api/tasks/{id}/result` | 鉴权读取结果：图片 JPEG 或视频 MP4（支持 Range） |
+| GET | `/api/tasks/{id}/result/poster` | 鉴权读取视频封面 JPEG |
 | GET/PUT | `/api/admin/simulation` | 管理员配置耗时与失败注入 |
 
 任务状态：`QUEUED → RUNNING → RETRYING / SUCCEEDED / FAILED`。步骤固定 `MATERIAL_CHECK → GENERATE → FINALIZE`，失败后后续步骤 `SKIPPED`，终态不可逆。服务重启将 `RUNNING` 恢复为 `QUEUED`（`resumeCount+1`），已完成步骤不重跑，中断尝试标记 `INTERRUPTED`。
@@ -184,6 +195,8 @@ docker compose up --build
 9. 相同 `clientRequestId` 提交两次只建一个任务；改素材顺序返回 `409`。
 10. `demo2` 登录看不到 `demo` 的任务与结果；切回 `demo` 记录仍在。
 11. 顶栏切换 English，不刷新页面；模板、状态与失败原因变英文，刷新后保持。
+12. 打开“黄金时刻”上传 2 张照片，结果明显暖调/琥珀；换“夏日海岸”可见冷调差异。
+13. 打开“城市漫游”上传 5 张照片，点击“生成视频”；完成后结果弹层可播放、可拖动进度，卡片显示 `15 秒` 与封面。
 
 管理员注入示例：
 
@@ -211,14 +224,14 @@ curl -s -X PUT http://localhost:8080/api/admin/simulation \
 ## 10. 测试与 CI
 
 ```bash
-# 后端：单元 + Testcontainers MySQL 集成测试（102 个用例）
+# 后端：单元 + Testcontainers MySQL 集成测试（125 个用例；视频用例无 ffmpeg 时跳过）
 cd backend && ./mvnw verify
 
-# 前端：类型、Lint、组件测试、生产构建（45 个用例）
+# 前端：类型、Lint、组件测试、生产构建（54 个用例）
 cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ```
 
-覆盖登录/刷新/隔离、素材校验、三步流水线、受理幂等（含并发）、自动重试与退避、耗尽、终态失败、启动恢复与续跑、错误/i18n、前端多任务/查询异常/上传/筛选/详情。GitHub Actions 在 push 与 PR 触发前后端两个 job；容器构建不跑测试（CI 已跑）。
+覆盖登录/刷新/隔离、素材校验、三步流水线、受理幂等（含并发）、自动重试与退避、耗尽、终态失败、启动恢复与续跑、错误/i18n、LUT/调色/轻人像、视频渲染/Range/poster、前端多任务/查询异常/上传/筛选/详情/视频播放。GitHub Actions 在 push 与 PR 触发前后端两个 job；容器构建不跑测试（CI 已跑）。
 
 ## 11. 部署、备份与回滚
 
@@ -230,14 +243,16 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ## 12. 完成度与已知限制
 
-已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)）。
+已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
 
 已知限制：
 
-- 单实例部署：登录限流在进程内生效；刷新轮换与令牌版本校验依赖共享 MySQL，本身可跨实例，但任务恢复与本地存储仍需单实例。
+- 单实例部署：登录限流在进程内生效；刷新轮换与令牌版本校验依赖共享 MySQL，本身可跨实例，但任务恢复、本地存储与 ffmpeg 并发信号量仍需单实例。
 - 账号禁用会阻止新登录、刷新与已签发访问令牌（过滤器校验状态）；尚未提供管理端禁用界面。普通退出只撤销当前设备，其他设备最多再存活 15 分钟；账号弹层可用“退出所有设备”立即吊销全部。
-- 本地卷存储：结果合成使用 Java2D 与自托管 Inter 字体，未接入 S3/CDN。
-- 不提供注册、找回密码、删除账号、任务删除/重做、结果下载与视频生成。
+- 本地卷存储：结果合成使用 Java2D 与自托管 Inter 字体，视频使用本机 ffmpeg；未接入 S3/CDN。
+- 不提供注册、找回密码、删除账号、任务删除/重做、结果下载；视频上传/混剪未排期。
+- 视频模板只接受照片（3～5 张），输出 15 秒 1080×1920 H.264/AAC；视频内文字固定英文 ASCII，不随界面语言变化。
+- ffmpeg 缺失或关闭时，视频模板提交返回 503 `VIDEO_UNAVAILABLE`；图片模板不受影响。图片模板生成的调色效果依赖 LUT 与参数，不做 AI 内容理解。
 - Flyway 对 MySQL 8.4 仍输出“支持未测试”警告；迁移已在 8.4 上验证。
 - 模拟控制为全局单例，仅用于演示；生产不应暴露管理端。
 - 生产需在反向代理配置 HTTPS/HSTS，并限制 3000/8080 暴露。
@@ -248,16 +263,19 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 本项目在 AI 编程助手（Qoder）辅助下完成，流程如下：
 
-- 先以 `docs/` 建立需求、领域、API、视觉、测试与提交规范，再按 M0～M8 里程碑实施；每个提交按模块与层次拆分。
+- 先以 `docs/` 建立需求、领域、API、视觉、测试与提交规范，再按 M0～M8 里程碑实施；X5 模板特效/视频沿用同一流程并单独留证。
 - 提供给助手的上下文包括需求文档、验收清单、参考截图与既有代码约束；代码、迁移、测试与文档同批更新。
-- 验证不只依赖生成结果：后端 102 个测试、前端 47 个测试、生产构建、真实浏览器五档宽度、断网/重启/切账号/失败注入均实际执行，并归档于 [docs/evidence/m7-acceptance.md](docs/evidence/m7-acceptance.md)。
+- 验证不只依赖生成结果：后端 125 个测试（含 ffmpeg 视频用例）、前端 54 个测试、生产构建、真实浏览器五档宽度、断网/重启/切账号/失败注入均实际执行，并归档于 [docs/evidence](docs/evidence/)。
 - 一个具体修正：M7 视觉复核发现任务卡状态位于左上角、模板封面为抽象渐变，与硬约束不符；改为状态居中并替换为照片封面后重新截图。安全巡检发现缺少 CSP，已在 `next.config.ts` 补齐并在浏览器验证。
+- X5 修正：浏览器实测视频无法播放，控制台显示 CSP 拦截 blob；补 `media-src 'self' blob:` 后 `<video>` readyState=4。抽帧发现标题为缺字方框，原因是 `Locale.ENGLISH` 不命中 `en_US` 资源包，改为 `Locale.US` 后恢复 ASCII 文字。
 
 ## 14. 第三方资源
 
 - Inter Variable 与 JetBrains Mono：SIL Open Font License 1.1，自托管于 `frontend/src/assets/fonts` 与后端渲染资源。
 - 图标：lucide-react（ISC）。
 - 模板封面：AI 生成的演示照片，随仓库提供，仅用于演示；来源与许可说明见 [backend/src/main/resources/static/assets/CREDITS.md](backend/src/main/resources/static/assets/CREDITS.md)。
+- LUT、背景音乐与新增封面：本项目自制，随仓库提供；清单与许可见 [docs/assets/template-resources.md](docs/assets/template-resources.md)。
+- ffmpeg：LGPL/GPL（取决于构建），仅作为运行时依赖调用，不随源码分发。
 - 参考界面截图位于 [docs/assets/reference](docs/assets/reference)，仅用于布局对照。
 
 ## 15. 交付状态
@@ -266,7 +284,8 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] 前后端完整源码
 - [x] 数据库结构与种子
 - [x] 五个业务页面与视觉对齐
-- [x] 后端 102 / 前端 47 测试
+- [x] 后端 125 / 前端 54 测试
+- [x] X5 图片调色、轻人像与 15 秒视频模板（含 Range/封面播放）
 - [x] Docker Compose 一键启动
 - [x] GitHub Actions CI
 - [x] 演示脚本、AI 使用说明、已知限制

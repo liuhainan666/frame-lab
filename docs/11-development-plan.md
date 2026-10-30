@@ -458,3 +458,26 @@ M0 ─▶ M1 ─▶ M2 ─┬─▶ M3 ─▶ M4 ─┐
 - [ ] 确认从 M1 数据库迁移开始，不先写页面假数据。
 
 评审通过后按 M0 → M1 顺序启动；每个里程碑结束按 [09](09-git-commit.md) 分层提交，不把多个模块混在一个提交中。
+
+## 11. X5 模板特效与视频模板（已执行）
+
+设计见 [13](13-effects-video-templates.md)。本阶段在原 P0/E-01～E-04 完成后追加，不改变既有任务生命周期与门禁。
+
+| 里程碑 | 任务 | 主要产出 | 状态 |
+|---|---|---|---|
+| X5-01 | Schema 与 spec | V4 迁移、`TemplateRenderSpecParser/Validator`、任务快照与视频结果字段 | 完成 |
+| X5-02 | 图片特效 | `.cube` LUT、颜色管线、轻人像、暗角/颗粒/泛光；`EffectResultRenderer` | 完成 |
+| X5-03 | 图片模板种子 | V5 回填 10 个模板 + `golden-hour`、`clear-portrait`；API 返回 `kind/effectTags/output` | 完成 |
+| X5-04 | 视频渲染 | `VideoRenderService`（ffmpeg filter graph、zoompan/xfade/LUT/音乐/文字/水印、ffprobe 校验、超时与并发限制） | 完成 |
+| X5-05 | 视频种子 | V6 `city-walk-15s`、封面、LUT、背景音乐 | 完成 |
+| X5-06 | 结果 API | `video/mp4`、Range/206/416、poster 接口、ETag、归属校验 | 完成 |
+| X5-07 | 前端 | 类型/效果标签/视频徽标/时长、制作台输出摘要、视频结果弹层、poster 卡片、i18n | 完成 |
+| X5-08 | 测试与证据 | 后端 125 项（视频用例在无 ffmpeg 时跳过）、前端 54 项；lint/typecheck/build；证据见 [x5](evidence/extensions/x5-effects-video.md) | 完成 |
+
+门禁：
+
+- 旧 10 个模板结果仍可生成；新增 `kind` 默认 `IMAGE`，旧任务结果字段为空时按 `image/jpeg` 渲染。
+- `ffmpeg` 是可选运行时依赖：缺失时仅视频模板返回 503 `VIDEO_UNAVAILABLE`，图片链路与全部既有测试不受影响。
+- 图片输出稳定可重复；视频在演示机 CPU 渲染 15 秒 1080×1920 约 32 秒，超时上限 180 秒。
+- 视频文字层与品牌水印只用 ASCII（`Locale.US` + 内置字体）；不承诺视频内中文文案。
+- 不新增视频上传/混剪；仍只接受照片。

@@ -2,15 +2,16 @@
 
 本目录是本项目开发前的**唯一口径**。代码、测试、README 与本文档冲突时，先确认需求原文（[需求.doc](需求.doc)），再同步修改文档、DDL、接口与测试，不允许只改其中一边。
 
-- 文档基线：v1.2 · 2026-10-29
-- 阶段：M0 ～ M8 已完成，P0 与 E-01 ～ E-04 已验收；后续扩展见 [扩展计划](12-extension-plan.md)
+- 文档基线：v1.3 · 2026-10-30
+- 阶段：M0 ～ M8、E-01 ～ E-04、X0/X1/X5 已完成；后续扩展见 [扩展计划](12-extension-plan.md)
 - 需求来源：全栈开发笔试题（100 分，R-01 ～ R-14）
 - 追加范围：E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 国际化（中/英），全部按 P0 实现
+- X5 追加范围：模板预设调色 + 轻人像、照片轮播视频模板、视频结果 Range/封面；见 [13](13-effects-video-templates.md)
 - 参考界面：[assets/reference](assets/reference) 下 UI-01 ～ UI-04 四张截图
 - 开发计划：[11-development-plan.md](11-development-plan.md)，含里程碑、任务依赖、页面逐项对齐与验收门禁
 - 扩展计划：[12-extension-plan.md](12-extension-plan.md)，含 P1 盘点、架构后续方向、决策点与回滚规则
-- 特效与视频提案：[13-effects-video-templates.md](13-effects-video-templates.md)，设计阶段，未实施
-- 扩展进度：X0、X1 已完成（刷新轮换、访问令牌即时失效、退出全部）；X2a 未开始，证据见 [x1-acceptance](evidence/extensions/x1-acceptance.md)
+- 特效与视频设计：[13-effects-video-templates.md](13-effects-video-templates.md)，已实施（V4/V5/V6）
+- 扩展进度：X0、X1、X5 已完成；X2a 未开始。证据见 [x1-acceptance](evidence/extensions/x1-acceptance.md)、[x5-effects-video](evidence/extensions/x5-effects-video.md)
 
 ## 1. 目标
 
@@ -26,11 +27,13 @@
 8. **自动重试**：可重试失败按次数与指数退避自动重试，界面展示等待重试、尝试次数与最终结果。
 9. **断点续跑**：服务重启后从第一个未完成步骤继续，已成功步骤不重跑；中断步骤整步重试。
 10. **国际化**：中文 / English 两套界面、模板文案与 API 消息；语言切换立即生效并持久化。
+11. **模板特效**：图片模板按 `render_spec` 应用 LUT 调色、曝光/对比/饱和、暗角/颗粒与轻人像；同一输入结果稳定。
+12. **照片轮播视频**：视频模板把 3～5 张照片渲染为 15 秒 MP4（转场、调色、音乐、文字、封面），结果支持 Range 播放与 poster。
 
 ## 2. 非目标
 
 - 不接入真实 AI、支付、积分/会员、第三方账号、多区域部署、第三方登录。
-- 不实现模板管理后台、任务删除、重新制作、下载、视频处理。
+- 不实现模板管理后台、任务删除、重新制作、下载、视频上传/混剪；照片轮播视频（X5）不在此限。
 - 不使用消息队列、Redis、SSE 或 WebSocket；异步用数据库任务表 + 后端工作线程 + 轮询完成。
 - 不实现多实例部署、对象存储、病毒扫描。
 - 不实现步骤内部（渲染到一半）的精确续跑；续跑粒度为步骤边界，中断步骤从头重跑。
@@ -52,6 +55,8 @@
 | 数据库 | MySQL 8.4 LTS | Docker 镜像锁定 8.4.x | InnoDB、utf8mb4、UTC、Flyway 迁移；尝试记录 + 翻译表 |
 | 迁移 | Flyway | 随 Spring Boot BOM | 启动时迁移；种子数据入库 |
 | 文件存储 | 本地目录 + Docker Volume | 路径由环境变量配置 | 素材与结果均经鉴权接口读取 |
+| 图片渲染 | Java2D + `.cube` LUT | 无原生依赖 | 调色、轻人像、合成、水印 |
+| 视频渲染 | ffmpeg / ffprobe（镜像安装） | 运行时可探测 | 照片轮播、转场、LUT、音乐、文字、MP4 + poster |
 | 测试 | JUnit 5 + MockMvc + Testcontainers MySQL；Vitest + Testing Library + MSW | 锁定在 lockfile | 覆盖步骤顺序、失败中断、重试/续跑、幂等、多任务、i18n |
 | 交付 | Docker Compose v2 + GitHub Actions | 见 [07](07-testing-ci-deploy.md) | 一条命令启动前端、后端、MySQL |
 
