@@ -24,6 +24,7 @@
 |---|---|
 | `V1__schema.sql` | 全部表、索引、约束 |
 | `V2__seed.sql` | 分类、模板、演示账号、模拟配置默认值 |
+| `V3__session_security.sql` | 用户令牌版本、刷新令牌家族、轮换链与撤销原因 |
 
 > 种子口令仅用于演示环境，README 必须提示修改；生产部署不得沿用。
 
@@ -32,7 +33,7 @@
 | 表 | 角色 | 生命周期 |
 |---|---|---|
 | `app_user` | 登录用户 | 永久 |
-| `refresh_token` | 刷新令牌哈希 | 7 天，可撤销 |
+| `refresh_token` | 刷新令牌哈希 | 家族绝对 7 天；轮换、可撤销 |
 | `template_category` | 模板分类 | 种子 |
 | `template_category_translation` | 分类的多语言名称 | 种子，随分类 |
 | `template` | 模板与素材要求 | 种子，P0 只读 |
@@ -59,7 +60,7 @@ app_user 1─n simulation_setting (updated_by)
 ## 3. 建表 DDL
 
 ```sql
--- V1__schema.sql
+-- V1__schema.sql + V3__session_security.sql（合并展示最终结构）
 SET NAMES utf8mb4;
 
 CREATE TABLE app_user (
@@ -69,6 +70,7 @@ CREATE TABLE app_user (
   password_hash   CHAR(60)        NOT NULL,
   role            VARCHAR(16)     NOT NULL DEFAULT 'USER',
   status          VARCHAR(16)     NOT NULL DEFAULT 'ACTIVE',
+  token_version   INT UNSIGNED    NOT NULL DEFAULT 0,
   created_at      DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at      DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
                                   ON UPDATE CURRENT_TIMESTAMP(3),
@@ -77,25 +79,42 @@ CREATE TABLE app_user (
   CONSTRAINT ck_app_user_role   CHECK (role IN ('USER','ADMIN')),
   CONSTRAINT ck_app_user_status CHECK (status IN ('ACTIVE','DISABLED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='登录用户';
+  COMMENT='登录用户；token_version 递增使旧访问令牌失效';
 
 CREATE TABLE refresh_token (
-  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id       BIGINT UNSIGNED NOT NULL,
-  token_hash    CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  expires_at    DATETIME(3)     NOT NULL,
-  revoked_at    DATETIME(3)     NULL,
-  last_used_at  DATETIME(3)     NULL,
-  created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id           BIGINT UNSIGNED NOT NULL,
+  family_id         CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  token_hash        CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  expires_at        DATETIME(3)     NOT NULL,
+  family_expires_at DATETIME(3)     NOT NULL,
+  revoked_at        DATETIME(3)     NULL,
+  revoked_reason    VARCHAR(24)     NULL,
+  replaced_by_id    BIGINT UNSIGNED NULL,
+  last_used_at      DATETIME(3)     NULL,
+  created_at        DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uq_refresh_token_hash (token_hash),
   KEY idx_refresh_user_expires (user_id, expires_at),
   KEY idx_refresh_expires (expires_at),
+  KEY idx_refresh_family (family_id),
+  KEY idx_refresh_user_revoked (user_id, revoked_at),
+  KEY idx_refresh_replaced_by (replaced_by_id),
   CONSTRAINT fk_refresh_user FOREIGN KEY (user_id)
     REFERENCES app_user (id) ON DELETE CASCADE,
-  CONSTRAINT ck_refresh_expiry CHECK (expires_at > created_at)
+  CONSTRAINT fk_refresh_replaced_by FOREIGN KEY (replaced_by_id)
+    REFERENCES refresh_token (id) ON DELETE SET NULL,
+  CONSTRAINT ck_refresh_expiry CHECK (expires_at > created_at),
+  CONSTRAINT ck_refresh_family_expiry CHECK (family_expires_at >= created_at),
+  CONSTRAINT ck_refresh_revoked_reason CHECK (
+    revoked_reason IS NULL OR revoked_reason IN ('LOGOUT','ROTATED','REUSE','DISABLED','EXPIRED')
+  )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='刷新令牌，仅存 SHA-256';
+  COMMENT='刷新令牌，仅存 SHA-256；family 内轮换，绝对过期';
+
+-- V3__session_security.sql 在既有库上追加上述列、索引与约束；
+-- 旧 refresh_token 行按 expires_at 回填 family_expires_at。
+```
 
 CREATE TABLE template_category (
   id          VARCHAR(32)  NOT NULL,
@@ -433,6 +452,9 @@ CREATE TABLE simulation_setting (
 | `idx_asset_user_created` | 素材列表/清理（P1） |
 | `idx_refresh_user_expires` | 校验用户令牌、清理过期 |
 | `idx_refresh_expires` | 过期令牌批量清理 |
+| `idx_refresh_family` | 轮换与重用检测时按家族撤销 |
+| `idx_refresh_user_revoked` | 退出全部设备时按用户撤销 |
+| `idx_refresh_replaced_by` | 轮换链审计与自引用外键 |
 | `idx_material_asset` | 删除素材前检查是否被任务引用 |
 
 不建全文索引、不做分表；演示数据量级不需要。`message_args` / `failure_args` 使用 JSON 仅为存储结构化参数，不在 JSON 内做查询，因此不建函数索引。
@@ -458,6 +480,8 @@ CREATE TABLE simulation_setting (
 | DB-13 | 同一任务最多一个 RUNNING 步骤；每个步骤最多一个 RUNNING attempt | 服务层 + 任务行锁（MySQL 无部分唯一索引） |
 | DB-14 | 任务终态不可变 | 服务层 `WHERE status IN ('RUNNING','RETRYING')` + 影响行数检查 |
 | DB-15 | 失败后后续步骤必须 SKIPPED；重试等待期间后续步骤保持 PENDING | 服务层同一事务写入 |
+| DB-16 | 刷新令牌家族绝对过期不早于创建时间；过期后整族不可刷新 | `ck_refresh_family_expiry` + `RefreshTokenService` |
+| DB-17 | 访问令牌版本只由服务层递增；旧版本令牌立即失效 | `token_version` + JWT `ver` + 过滤器校验 |
 | DB-16 | 任务快照不随模板变化 | 创建时复制字段，服务层不更新快照 |
 | DB-17 | `RETRYING` 必须有 `next_retry_at` 与 `last_error_code`，且不得有 `failure_code` / `finished_at` | `ck_task_retrying` |
 | DB-18 | 非 `RETRYING` 任务不得保留 `next_retry_at` 或 `last_error_*` | `ck_task_next_retry` / `ck_task_last_error` |
@@ -826,7 +850,7 @@ VALUES (1, 800, 3000, 1200, NULL, 0, 0, 3);
 
 | 数据 | 保留策略 | 实现 |
 |---|---|---|
-| 过期刷新令牌 | 过期后 7 天删除 | P0 启动时/每日清理；`DELETE ... WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 7 DAY` |
+| 过期刷新令牌 | 保留用于审计 | 当前不物理删除；X2a 定时清理（见 [12](12-extension-plan.md)）；活跃家族不受影响 |
 | 未绑定素材 | 7 天后清理（P1） | 定时任务；P0 仅提供用户主动删除 |
 | 任务/步骤/尝试/结果 | 永久 | 不删除 |
 | 模拟配置 | 永久单行 | 可重置为默认 |
