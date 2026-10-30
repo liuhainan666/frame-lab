@@ -6,7 +6,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl fontconfig \
+ && apt-get install -y --no-install-recommends curl fontconfig ffmpeg \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --create-home framelab
 WORKDIR /app
