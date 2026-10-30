@@ -45,5 +45,6 @@ export const handlers = [
       { status: 401, headers: { "Content-Type": "application/problem+json" } }
     );
   }),
-  http.post(`${API_BASE}/api/auth/logout`, () => new HttpResponse(null, { status: 204 }))
+  http.post(`${API_BASE}/api/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+  http.post(`${API_BASE}/api/auth/logout-all`, () => new HttpResponse(null, { status: 204 }))
 ];
