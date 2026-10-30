@@ -22,10 +22,11 @@ test-results/
 *.log
 logs/
 
-# 本地存储与数据库卷
-storage/
-mysql-data/
-data/mysql/
+# 本地存储与数据库卷（仅运行时目录，不匹配 Java 的 infrastructure/storage 包）
+/storage/
+/backend/storage/
+/mysql-data/
+/data/mysql/
 backup-*.sql
 
 # 临时文件
