@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.user.UserMapper">
+
+    <resultMap id="userMap" type="com.framelab.user.User">
+        <id column="id" property="id"/>
+        <result column="email" property="email"/>
+        <result column="display_name" property="displayName"/>
+        <result column="password_hash" property="passwordHash"/>
+        <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <resultMap id="refreshSessionMap" type="com.framelab.user.RefreshSession">
+        <id column="token_id" property="tokenId"/>
+        <result column="user_id" property="userId"/>
+        <result column="token_hash" property="tokenHash"/>
+        <result column="expires_at" property="expiresAt"/>
+        <result column="revoked_at" property="revokedAt"/>
+        <result column="last_used_at" property="lastUsedAt"/>
+        <result column="email" property="email"/>
+        <result column="display_name" property="displayName"/>
+        <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="user_created_at" property="userCreatedAt"/>
+    </resultMap>
+
+    <select id="findByEmail" resultMap="userMap">
+        SELECT id, email, display_name, password_hash, role, status, created_at
+          FROM app_user
+         WHERE email = #{email}
+    </select>
+
+    <select id="findById" resultMap="userMap">
+        SELECT id, email, display_name, password_hash, role, status, created_at
+          FROM app_user
+         WHERE id = #{id}
+    </select>
+
+    <insert id="insertRefreshToken">
+        INSERT INTO refresh_token (user_id, token_hash, expires_at)
+        VALUES (#{userId}, #{tokenHash}, TIMESTAMPADD(SECOND, #{ttlSeconds}, UTC_TIMESTAMP(3)))
+    </insert>
+
+    <update id="revokeRefreshToken">
+        UPDATE refresh_token
+           SET revoked_at = UTC_TIMESTAMP(3)
+         WHERE token_hash = #{tokenHash}
+           AND revoked_at IS NULL
+    </update>
+
+    <update id="touchRefreshToken">
+        UPDATE refresh_token
+           SET last_used_at = UTC_TIMESTAMP(3)
+         WHERE token_hash = #{tokenHash}
+           AND revoked_at IS NULL
+    </update>
+
+    <select id="findActiveSession" resultMap="refreshSessionMap">
+        SELECT rt.id AS token_id,
+               rt.user_id,
+               rt.token_hash,
+               rt.expires_at,
+               rt.revoked_at,
+               rt.last_used_at,
+               u.email,
+               u.display_name,
+               u.role,
+               u.status,
+               u.created_at AS user_created_at
+          FROM refresh_token rt
+          JOIN app_user u ON u.id = rt.user_id
+         WHERE rt.token_hash = #{tokenHash}
+           AND rt.revoked_at IS NULL
+           AND rt.expires_at > UTC_TIMESTAMP(3)
+    </select>
+</mapper>
