@@ -2,7 +2,7 @@
 
 深色画廊风格的素材制作网站：浏览模板、上传图片、提交三步异步制作任务，并在处理期间继续使用网站，最后查看个人历史与结果。前端使用 Next.js，后端使用 Spring Boot 3 + Spring Security + MyBatis，数据持久化到 MySQL 8.4。
 
-> 当前状态：M1 数据层完成（Spring Boot 骨架、Flyway V1/V2、演示封面与迁移测试），下一步进入 M2 安全与基础 API。设计文档仍是开发与验收的唯一口径。
+> 当前状态：M2 安全与基础 API 完成（JWT + 刷新 Cookie、problem+json / 中英文错误、私有素材、模板与分类接口），下一步进入 M3 任务核心。设计文档仍是开发与验收的唯一口径。
 
 ## 1. 文档入口
 
@@ -90,19 +90,32 @@ docker compose up --build
 
 在 M8 之前，本仓库尚不能一键启动完整应用；请按 [docs/11-development-plan.md](docs/11-development-plan.md) 的阶段推进。
 
-### 5.1 当前里程碑验证（M1）
+### 5.1 当前里程碑验证（M1 / M2）
 
 ```bash
 cd backend
-./mvnw -B test
+./mvnw -B verify
 ```
 
-Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2 并校验 12 张表与种子行数。需要手工观察后端启动时，先启动 Compose 中的 MySQL，再以 `MYSQL_*` 环境变量运行 `spring-boot:run`。
+Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2，并校验迁移、种子、登录会话、刷新令牌、问题响应、模板/分类与素材上传读取。当前 55 个用例覆盖 BE-I-02 ～ 10、22、32 ～ 34 与 BE-U-08 ～ 10、23 ～ 25。
+
+手工联调（先启动 Compose MySQL，并以 `.env` 中的 `MYSQL_*` 环境变量运行 `spring-boot:run`）：
+
+```bash
+curl -s http://localhost:8080/api/templates -H 'Accept-Language: en-US'
+curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@framelab.local","password":"Demo1234!"}'
+```
+
+登录响应中的 `accessToken` 用于 `Authorization: Bearer`；刷新令牌只通过 HttpOnly Cookie `framelab_rt` 传递，素材内容必须经 `/api/assets/{id}/content` 鉴权读取。
 
 ## 6. 配置与安全
 
 - `.env` 不入库；仓库只保留 [.env.example](.env.example) 中的演示值。
-- `FRAMELAB_JWT_SECRET` 至少 32 字节；生产必须替换为强随机值并启用 HTTPS。
+- `FRAMELAB_JWT_SECRET` 至少 32 字节；生产 profile 必须替换为强随机值，否则启动失败；生产必须启用 HTTPS 与 `FRAMELAB_COOKIE_SECURE=true`。
+- 访问令牌放在前端内存并以 `Authorization: Bearer` 发送；刷新令牌是 HttpOnly Cookie（`Path=/api/auth; SameSite=Lax`）。业务接口不依赖 Cookie 自动鉴权，因此关闭 CSRF；刷新与退出只操作会话，不改变业务数据，前端禁止用 GET 执行写操作。
+- CORS 仅允许 `.env` 中的 `FRAMELAB_CORS_ALLOWED_ORIGINS`（默认 `http://localhost:3000`），允许 `Authorization`、`Content-Type`、`Accept-Language` 并暴露 `Location`、`Idempotent-Replay`、`X-Request-Id`、`Retry-After`、`Content-Language`、`Content-Disposition`。
 - 演示账号、数据库口令仅用于本地与评审，不得用于生产。
 - 素材与结果存放在服务端私有目录，经鉴权接口读取；浏览器 `blob:` 只用于预览。
 - 仓库不包含真实密钥、用户照片、数据库卷或构建产物。
@@ -113,8 +126,8 @@ Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2 并校验 12 张表�
 |---|---|---|
 | M0 | 仓库、忽略规则、环境与文档基线 | 完成 |
 | M1 | 数据库迁移与种子数据 | 完成 |
-| M2 | 安全、错误/i18n、模板与素材接口 | 下一步 |
-| M3 | 任务受理、流水线、模拟与结果 | 未开始 |
+| M2 | 安全、错误/i18n、模板与素材接口 | 完成 |
+| M3 | 任务受理、流水线、模拟与结果 | 下一步 |
 | M4 | 幂等、重试、续跑 | 未开始 |
 | M5 | 前端底座与登录 | 未开始 |
 | M6 | 五个页面与视觉对齐 | 未开始 |
@@ -124,7 +137,9 @@ Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2 并校验 12 张表�
 ## 8. 已知限制（开发中）
 
 - Flyway 10.20.1 对 MySQL 8.4 会输出“支持未测试”的警告；V1/V2 已在 MySQL 8.4.13 上执行通过，升级 Flyway 时复核。
-- 前端、鉴权、任务接口与 Compose 全链路尚未实现，当前只完成数据库层。
+- 前端、任务接口与 Compose 全链路尚未实现；当前后端已具备登录会话、模板/分类、素材上传读取与删除能力。
+- 本地 `.env` 若沿用旧的 root 账号或 3306 端口，需按 [.env.example](.env.example) 的演示值调整，或改用独立端口与账号；仓库不会提交 `.env`。
+- 开发默认使用固定 JWT 密钥；生产 profile 必须提供至少 32 字节的随机 `FRAMELAB_JWT_SECRET`，否则启动失败。
 
 ## 9. 交付状态（R-13）
 
@@ -132,6 +147,8 @@ Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2 并校验 12 张表�
 - [x] 开发计划与阶段门禁
 - [ ] 前后端完整源码
 - [x] 数据库结构与初始化数据
+- [x] 后端安全与基础 API（登录 / 刷新 / 退出 / 模板 / 素材）
+- [x] 后端单元与 Testcontainers 集成测试
 - [ ] 测试与 CI 配置
 - [ ] Docker Compose 一键启动
 - [ ] 演示脚本、AI 使用说明、已知限制
