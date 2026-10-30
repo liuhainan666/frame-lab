@@ -243,7 +243,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ## 12. 完成度与已知限制
 
-已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；五个页面、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
+已完成：R-01～R-14 的功能闭环、E-01 受理幂等、E-02 自动重试、E-03 断点续跑、E-04 中英文；X5 图片模板调色/轻人像与照片轮播视频；六个页面（含个人设置）、响应式、无障碍与视觉证据；Compose、CI 与 README；扩展 X1 的刷新令牌轮换、访问令牌即时失效与退出全部（[X1 验收](docs/evidence/extensions/x1-acceptance.md)、[X5 证据](docs/evidence/extensions/x5-effects-video.md)）。
 
 已知限制：
 
@@ -283,7 +283,7 @@ cd frontend && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 - [x] 设计与验收文档
 - [x] 前后端完整源码
 - [x] 数据库结构与种子
-- [x] 五个业务页面与视觉对齐
+- [x] 六个业务页面与视觉对齐
 - [x] 后端 125 / 前端 54 测试
 - [x] X5 图片调色、轻人像与 15 秒视频模板（含 Range/封面播放）
 - [x] Docker Compose 一键启动

@@ -91,6 +91,7 @@
 | `/history` 我的作品 | UI-03 | R-08、R-09、R-10 | `GET /api/tasks?status=...` | M6 | AC-R08-*、AC-R09-*、08 §6 UI-03 |
 | `/login` 登录 | 无独立图 | R-10 | `POST /api/auth/login`、`POST /api/auth/refresh` | M5/M6 | AC-R10-*、08 §6 登录 |
 | 账号弹层 | UI-04（补充参考） | R-10、E-04 | `GET /api/auth/me`、`POST /api/auth/logout` | M6 | AC-R10-*、08 §6 账号 |
+| `/settings` 个人设置 | 设置列表截图（X5 追加） | 账单/条款/隐私/订阅说明 | 无（纯前端，鉴权） | X5 | 08 §5.4、`settings-view.test.tsx` |
 | 任务详情 / 结果预览 | UI-03 | R-05、R-09 | `GET /api/tasks/{id}`、`GET /api/tasks/{id}/result` | M6 | AC-R05-*、AC-R09-* |
 | 错误与空态 | 无 | R-03、R-07 | — | M6 | AC-R07-*、08 §5 |
 
