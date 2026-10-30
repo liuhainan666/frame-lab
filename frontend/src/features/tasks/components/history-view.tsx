@@ -15,7 +15,7 @@ import { Pagination } from "@/shared/ui/pagination";
 import { useTasks } from "../queries";
 import { HISTORY_FILTERS, historyHref, historyStatus, type HistoryFilter } from "../filters";
 import type { TaskSummary } from "../types";
-import { QueryErrorBanner } from "./query-error-banner";
+import { QueryErrorToast } from "./query-error-toast";
 import { ResultDialog } from "./result-dialog";
 import { TaskCard } from "./task-card";
 import { TaskDetailDialog } from "./task-detail-dialog";
@@ -102,13 +102,7 @@ export function HistoryView({
       </div>
 
       {stale ? (
-        <div className="mt-5">
-          <QueryErrorBanner
-            message={t("history.stale")}
-            retrying={query.isFetching}
-            onRetry={() => void query.refetch()}
-          />
-        </div>
+        <QueryErrorToast message={t("history.stale")} onRetry={() => void query.refetch()} />
       ) : null}
 
       <div className="mt-6">

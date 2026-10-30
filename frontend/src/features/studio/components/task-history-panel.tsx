@@ -10,7 +10,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 import { useTasks } from "@/features/tasks/queries";
 import type { TaskSummary } from "@/features/tasks/types";
-import { QueryErrorBanner } from "@/features/tasks/components/query-error-banner";
+import { QueryErrorToast } from "@/features/tasks/components/query-error-toast";
 import { ResultDialog } from "@/features/tasks/components/result-dialog";
 import { TaskCard } from "@/features/tasks/components/task-card";
 import { TaskDetailDialog } from "@/features/tasks/components/task-detail-dialog";
@@ -94,9 +94,8 @@ export function TaskHistoryPanel({
       </div>
 
       {stale ? (
-        <QueryErrorBanner
+        <QueryErrorToast
           message={t("history.stale")}
-          retrying={query.isFetching}
           onRetry={() => void query.refetch()}
         />
       ) : null}

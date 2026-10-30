@@ -85,7 +85,7 @@ describe("历史页", () => {
     expect(router.replace).toHaveBeenCalledWith("/history", { scroll: false });
   });
 
-  it("查询失败保留旧数据并显示提示条", async () => {
+  it("查询失败保留旧数据并在顶部提示", async () => {
     let fail = false;
     server.use(
       http.get(`${API_BASE}/api/tasks`, () => {
@@ -107,9 +107,8 @@ describe("历史页", () => {
     fail = true;
     await queryClient.refetchQueries({ queryKey: ["tasks"] });
 
-    expect(await screen.findByTestId("query-error-banner")).toHaveTextContent(
-      "任务状态暂时无法更新"
-    );
+    const toast = await screen.findByTestId("toast");
+    expect(toast).toHaveTextContent("任务状态暂时无法更新");
     expect(screen.getByTestId("task-status")).toHaveTextContent("等待重试");
   });
 });
