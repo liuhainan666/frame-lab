@@ -16,19 +16,29 @@ export function DialogContent({
   description,
   children,
   footer,
+  size = "default",
   className
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: "default" | "wide";
   className?: string;
 }) {
   const { t } = useI18n();
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="dialog-overlay" />
-      <DialogPrimitive.Content className={cn("dialog-content", className)}>
+      <DialogPrimitive.Content
+        className={cn(
+          "dialog-content",
+          size === "wide"
+            ? "w-[min(880px,calc(100vw-32px))]"
+            : "w-[min(480px,calc(100vw-32px))]",
+          className
+        )}
+      >
         <div className="flex items-start justify-between gap-6">
           <div className="flex flex-col gap-2">
             <DialogPrimitive.Title className="h2">{title}</DialogPrimitive.Title>
