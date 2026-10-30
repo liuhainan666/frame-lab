@@ -1,36 +1,27 @@
-"use client";
-
-import { Images } from "lucide-react";
-import Link from "next/link";
-
 import { RequireAuth } from "@/features/auth/components/require-auth";
-import { useI18n } from "@/i18n/provider";
-import { Button } from "@/shared/ui/button";
-import { EmptyState } from "@/shared/ui/empty-state";
+import { HISTORY_FILTERS, type HistoryFilter } from "@/features/tasks/filters";
+import { HistoryView } from "@/features/tasks/components/history-view";
 
-export default function HistoryPage() {
-  const { t } = useI18n();
+function parseFilter(value: string | string[] | undefined): HistoryFilter {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return HISTORY_FILTERS.includes(raw as HistoryFilter) ? (raw as HistoryFilter) : "all";
+}
+
+function parsePage(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
+
+export default async function HistoryPage({
+  searchParams
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
   return (
     <RequireAuth>
-      <header className="max-w-2xl">
-        <p className="eyebrow text-accent">{t("history.eyebrow")}</p>
-        <h1 className="display mt-4">{t("history.title")}</h1>
-        <p className="mt-4 max-w-xl text-[14px] leading-[1.8] text-ink-secondary">
-          {t("history.description")}
-        </p>
-      </header>
-      <div className="mt-12">
-        <EmptyState
-          icon={<Images aria-hidden className="h-5 w-5" />}
-          title={t("history.placeholderTitle")}
-          description={t("history.placeholderDescription")}
-          action={
-            <Link href="/">
-              <Button variant="secondary">{t("nav.templates")}</Button>
-            </Link>
-          }
-        />
-      </div>
+      <HistoryView initialFilter={parseFilter(params.status)} initialPage={parsePage(params.page)} />
     </RequireAuth>
   );
 }
