@@ -9,6 +9,7 @@
 - 参考界面：[assets/reference](assets/reference) 下 UI-01 ～ UI-04 四张截图
 - 开发计划：[11-development-plan.md](11-development-plan.md)，含里程碑、任务依赖、页面逐项对齐与验收门禁
 - 扩展计划：[12-extension-plan.md](12-extension-plan.md)，含 P1 盘点、架构后续方向、决策点与回滚规则
+- 扩展进度：X0、X1 已完成（刷新轮换、访问令牌即时失效、退出全部）；X2a 未开始，证据见 [x1-acceptance](evidence/extensions/x1-acceptance.md)
 
 ## 1. 目标
 
