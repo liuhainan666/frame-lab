@@ -30,13 +30,16 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 h-[68px] border-b border-line bg-bg/75 backdrop-blur-xl">
-      <div className="page-shell flex h-full items-center gap-5 sm:gap-8">
+      <div className="page-shell flex h-full items-center gap-3 sm:gap-8">
         <Link
           href="/"
+          aria-label={t("app.name")}
           className="flex shrink-0 items-center gap-2.5 text-ink transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <BrandMark className="h-7 w-7 text-accent" />
-          <span className="text-[15px] font-semibold tracking-[-0.02em]">FrameLab</span>
+          <span className="hidden text-[15px] font-semibold tracking-[-0.02em] sm:inline">
+            FrameLab
+          </span>
         </Link>
 
         <nav aria-label={t("nav.label")} className="flex items-center gap-1 sm:gap-2">
@@ -46,6 +49,7 @@ export function AppHeader() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.label}
                 aria-current={item.active ? "page" : undefined}
                 className={cn(
                   "relative flex h-10 items-center gap-2 rounded-full px-2.5 text-[13px] font-medium transition-colors sm:px-3",
@@ -64,7 +68,12 @@ export function AppHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <LocaleSwitcher />
+          <span className="hidden sm:block">
+            <LocaleSwitcher />
+          </span>
+          <span className="sm:hidden">
+            <LocaleSwitcher compact />
+          </span>
           {status === "authenticated" && user ? (
             <AccountMenu />
           ) : status === "unknown" ? (

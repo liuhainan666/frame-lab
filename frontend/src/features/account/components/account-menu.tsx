@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogTrigger } from "@/shared/ui/dialog";
 import { BrandMark } from "@/shared/ui/brand-mark";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { LocaleSwitcher } from "./locale-switcher";
+
 export function AccountMenu() {
   const { t, locale } = useI18n();
   const user = useAuthStore((state) => state.user);
@@ -49,7 +51,7 @@ export function AccountMenu() {
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[12px] font-semibold text-accent-ink">
             {initial}
           </span>
-          <span className="max-w-[120px] truncate text-[13px] font-medium text-ink">
+          <span className="hidden max-w-[120px] truncate text-[13px] font-medium text-ink sm:inline">
             {user.displayName}
           </span>
         </button>
@@ -72,22 +74,34 @@ export function AccountMenu() {
             <dt className="text-ink-muted">{t("account.joinedLabel")}</dt>
             <dd className="mono text-ink-secondary">{formatDate(user.createdAt, locale)}</dd>
           </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-ink-muted">{t("account.languageLabel")}</dt>
+            <dd>
+              <LocaleSwitcher />
+            </dd>
+          </div>
         </dl>
-        <p className="mt-3 flex items-center gap-2 text-[12px] text-ink-muted">
+        <p className="mt-3 text-[12px] leading-[18px] text-ink-muted">
+          {t("account.languageHint")}
+        </p>
+        <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-muted">
           <BrandMark className="h-4 w-4 shrink-0 text-accent" />
           {t("account.scope")}
         </p>
         <div className="mt-6 border-t border-line pt-5">
           <Button
-            variant="danger"
+            variant="ghost"
             leadingIcon={<LogOut aria-hidden className="h-4 w-4" />}
             loading={signingOut}
             onClick={handleSignOut}
-            className="w-full"
+            className="w-full justify-start text-danger hover:bg-danger-soft hover:text-danger"
           >
             {t("account.signOut")}
           </Button>
         </div>
+        <p className="mt-4 text-center text-[11px] leading-4 text-ink-muted">
+          {t("account.demoNote")}
+        </p>
       </DialogContent>
     </Dialog>
   );
