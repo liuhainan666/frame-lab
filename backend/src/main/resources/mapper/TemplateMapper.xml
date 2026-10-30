@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.template.TemplateMapper">
+
+    <resultMap id="categoryMap" type="com.framelab.template.CategoryRow">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="sort_order" property="sortOrder"/>
+    </resultMap>
+
+    <resultMap id="templateMap" type="com.framelab.template.TemplateRow">
+        <id column="id" property="id"/>
+        <result column="title" property="title"/>
+        <result column="description" property="description"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="category_name" property="categoryName"/>
+        <result column="cover_path" property="coverPath"/>
+        <result column="required_image_count" property="requiredImageCount"/>
+        <result column="accepted_mime_types" property="acceptedMimeTypes"/>
+        <result column="max_file_size_bytes" property="maxFileSizeBytes"/>
+        <result column="canvas_width" property="canvasWidth"/>
+        <result column="canvas_height" property="canvasHeight"/>
+        <result column="sort_order" property="sortOrder"/>
+    </resultMap>
+
+    <sql id="templateColumns">
+        t.id,
+        COALESCE(tt.title, t.title) AS title,
+        COALESCE(tt.description, t.description) AS description,
+        t.category_id,
+        COALESCE(ct.name, c.name) AS category_name,
+        t.cover_path,
+        t.required_image_count,
+        t.accepted_mime_types,
+        t.max_file_size_bytes,
+        t.canvas_width,
+        t.canvas_height,
+        t.sort_order
+    </sql>
+
+    <select id="findCategories" resultMap="categoryMap">
+        SELECT c.id, COALESCE(ct.name, c.name) AS name, c.sort_order
+          FROM template_category c
+          LEFT JOIN template_category_translation ct
+            ON ct.category_id = c.id AND ct.locale = #{locale}
+         ORDER BY c.sort_order, c.id
+    </select>
+
+    <select id="findPublished" resultMap="templateMap">
+        SELECT <include refid="templateColumns"/>
+          FROM template t
+          JOIN template_category c ON c.id = t.category_id
+          LEFT JOIN template_translation tt
+            ON tt.template_id = t.id AND tt.locale = #{locale}
+          LEFT JOIN template_category_translation ct
+            ON ct.category_id = c.id AND ct.locale = #{locale}
+         WHERE t.is_published = 1
+        <if test="categoryId != null and categoryId != ''">
+           AND t.category_id = #{categoryId}
+        </if>
+         ORDER BY c.sort_order, t.sort_order, COALESCE(tt.title, t.title), t.id
+    </select>
+
+    <select id="findPublishedById" resultMap="templateMap">
+        SELECT <include refid="templateColumns"/>
+          FROM template t
+          JOIN template_category c ON c.id = t.category_id
+          LEFT JOIN template_translation tt
+            ON tt.template_id = t.id AND tt.locale = #{locale}
+          LEFT JOIN template_category_translation ct
+            ON ct.category_id = c.id AND ct.locale = #{locale}
+         WHERE t.id = #{id}
+           AND t.is_published = 1
+    </select>
+</mapper>
