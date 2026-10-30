@@ -26,4 +26,8 @@ public class UserService {
         }
         return user;
     }
+
+    public void incrementTokenVersion(long userId) {
+        userMapper.incrementTokenVersion(userId);
+    }
 }

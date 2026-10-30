@@ -6,6 +6,8 @@ import java.util.List;
 import com.framelab.common.error.ErrorCode;
 import com.framelab.common.security.AuthUser;
 import com.framelab.common.web.RequestAttributes;
+import com.framelab.user.UserAuthState;
+import com.framelab.user.UserMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,9 +24,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenService jwtTokenService;
+    private final UserMapper userMapper;
 
-    public JwtAuthenticationFilter(JwtTokenService jwtTokenService) {
+    public JwtAuthenticationFilter(JwtTokenService jwtTokenService, UserMapper userMapper) {
         this.jwtTokenService = jwtTokenService;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -43,16 +47,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(HttpServletRequest request, String token) {
+        AuthUser authUser;
         try {
-            AuthUser authUser = jwtTokenService.parse(token);
-            var authentication = new UsernamePasswordAuthenticationToken(authUser, null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + authUser.role())));
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            authUser = jwtTokenService.parse(token);
         } catch (TokenExpiredException ex) {
             request.setAttribute(RequestAttributes.AUTH_ERROR, ErrorCode.TOKEN_EXPIRED);
+            return;
         } catch (RuntimeException ex) {
             request.setAttribute(RequestAttributes.AUTH_ERROR, ErrorCode.TOKEN_INVALID);
+            return;
         }
+
+        UserAuthState state = userMapper.findAuthState(authUser.id());
+        if (state == null
+                || !"ACTIVE".equals(state.getStatus())
+                || state.getTokenVersion() != authUser.tokenVersion()) {
+            request.setAttribute(RequestAttributes.AUTH_ERROR, ErrorCode.TOKEN_INVALID);
+            return;
+        }
+
+        var authentication = new UsernamePasswordAuthenticationToken(authUser, null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + authUser.role())));
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

@@ -6,6 +6,7 @@ import com.framelab.auth.JwtTokenService;
 import com.framelab.auth.ProblemAccessDeniedHandler;
 import com.framelab.auth.ProblemAuthenticationEntryPoint;
 import com.framelab.common.error.ProblemFactory;
+import com.framelab.user.UserMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtTokenService jwtTokenService,
+                                                   UserMapper userMapper,
                                                    ProblemFactory problemFactory,
                                                    ObjectMapper objectMapper) throws Exception {
         ProblemAuthenticationEntryPoint entryPoint = new ProblemAuthenticationEntryPoint(problemFactory, objectMapper);
@@ -56,7 +58,7 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenService),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenService, userMapper),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

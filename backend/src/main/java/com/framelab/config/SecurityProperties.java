@@ -14,6 +14,8 @@ public class SecurityProperties {
     private String audience = "framelab-web";
     private Duration accessTokenTtl = Duration.ofMinutes(15);
     private Duration refreshTokenTtl = Duration.ofDays(7);
+    private boolean refreshRotationEnabled = true;
+    private Duration refreshRotationGrace = Duration.ofSeconds(30);
     private String cookieName = "framelab_rt";
     private boolean cookieSecure;
     private List<String> corsAllowedOrigins = new ArrayList<>(List.of("http://localhost:3000"));
@@ -58,6 +60,22 @@ public class SecurityProperties {
 
     public void setRefreshTokenTtl(Duration refreshTokenTtl) {
         this.refreshTokenTtl = refreshTokenTtl;
+    }
+
+    public boolean isRefreshRotationEnabled() {
+        return refreshRotationEnabled;
+    }
+
+    public void setRefreshRotationEnabled(boolean refreshRotationEnabled) {
+        this.refreshRotationEnabled = refreshRotationEnabled;
+    }
+
+    public Duration getRefreshRotationGrace() {
+        return refreshRotationGrace;
+    }
+
+    public void setRefreshRotationGrace(Duration refreshRotationGrace) {
+        this.refreshRotationGrace = refreshRotationGrace;
     }
 
     public String getCookieName() {

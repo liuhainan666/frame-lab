@@ -5,6 +5,7 @@ import java.time.Duration;
 import com.framelab.auth.dto.AuthResponse;
 import com.framelab.auth.dto.LoginRequest;
 import com.framelab.auth.dto.UserView;
+import com.framelab.common.error.ApiException;
 import com.framelab.common.security.SecurityUtils;
 import com.framelab.config.SecurityProperties;
 import jakarta.servlet.http.Cookie;
@@ -42,16 +43,32 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public AuthResponse refresh(HttpServletRequest request) {
-        return authService.refresh(readRefreshCookie(request));
+    public ResponseEntity<AuthResponse> refresh(HttpServletRequest request, HttpServletResponse httpResponse) {
+        try {
+            AuthSession session = authService.refresh(readRefreshCookie(request));
+            if (session.refreshToken() != null) {
+                httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString());
+            }
+            return ResponseEntity.ok(session.response());
+        } catch (ApiException ex) {
+            httpResponse.addHeader(HttpHeaders.SET_COOKIE, clearedCookie().toString());
+            throw ex;
+        }
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request) {
         authService.logout(readRefreshCookie(request));
-        ResponseCookie cleared = baseCookie("").maxAge(Duration.ZERO).build();
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, cleared.toString())
+                .header(HttpHeaders.SET_COOKIE, clearedCookie().toString())
+                .build();
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<Void> logoutAll() {
+        authService.logoutAll(SecurityUtils.currentUser());
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, clearedCookie().toString())
                 .build();
     }
 
@@ -62,6 +79,10 @@ public class AuthController {
 
     private ResponseCookie refreshCookie(String refreshToken) {
         return baseCookie(refreshToken).maxAge(securityProperties.getRefreshTokenTtl()).build();
+    }
+
+    private ResponseCookie clearedCookie() {
+        return baseCookie("").maxAge(Duration.ZERO).build();
     }
 
     private ResponseCookie.ResponseCookieBuilder baseCookie(String value) {

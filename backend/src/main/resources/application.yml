@@ -46,6 +46,8 @@ framelab:
     audience: framelab-web
     access-token-ttl: ${FRAMELAB_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${FRAMELAB_REFRESH_TOKEN_TTL:7d}
+    refresh-rotation-enabled: ${FRAMELAB_REFRESH_ROTATION_ENABLED:true}
+    refresh-rotation-grace: ${FRAMELAB_REFRESH_ROTATION_GRACE:30s}
     cookie-name: framelab_rt
     cookie-secure: ${FRAMELAB_COOKIE_SECURE:false}
     cors-allowed-origins: ${FRAMELAB_CORS_ALLOWED_ORIGINS:http://localhost:3000}

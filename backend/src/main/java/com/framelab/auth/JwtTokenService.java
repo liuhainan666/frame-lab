@@ -26,6 +26,7 @@ public class JwtTokenService {
 
     private static final String CLAIM_EMAIL = "email";
     private static final String CLAIM_ROLE = "role";
+    private static final String CLAIM_VERSION = "ver";
 
     private final SecurityProperties properties;
     private final Clock clock;
@@ -59,6 +60,7 @@ public class JwtTokenService {
                 .jwtID(UUID.randomUUID().toString())
                 .claim(CLAIM_EMAIL, user.email())
                 .claim(CLAIM_ROLE, user.role())
+                .claim(CLAIM_VERSION, user.tokenVersion())
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
         try {
@@ -121,7 +123,15 @@ public class JwtTokenService {
         if (email == null || role == null || (!role.equals("USER") && !role.equals("ADMIN"))) {
             throw new TokenInvalidException();
         }
-        return new AuthUser(userId, email, role);
+        Object versionClaim = claims.getClaim(CLAIM_VERSION);
+        int tokenVersion = 0;
+        if (versionClaim != null) {
+            if (!(versionClaim instanceof Number number) || number.intValue() < 0) {
+                throw new TokenInvalidException();
+            }
+            tokenVersion = number.intValue();
+        }
+        return new AuthUser(userId, email, role, tokenVersion);
     }
 
     public long accessTokenTtlSeconds() {

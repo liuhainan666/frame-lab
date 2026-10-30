@@ -6,14 +6,19 @@ public class RefreshSession {
 
     private long tokenId;
     private long userId;
+    private String familyId;
     private String tokenHash;
     private LocalDateTime expiresAt;
+    private LocalDateTime familyExpiresAt;
     private LocalDateTime revokedAt;
+    private String revokedReason;
+    private Long replacedBy;
     private LocalDateTime lastUsedAt;
     private String email;
     private String displayName;
     private String role;
     private String status;
+    private int tokenVersion;
     private LocalDateTime userCreatedAt;
 
     public long getTokenId() {
@@ -32,6 +37,14 @@ public class RefreshSession {
         this.userId = userId;
     }
 
+    public String getFamilyId() {
+        return familyId;
+    }
+
+    public void setFamilyId(String familyId) {
+        this.familyId = familyId;
+    }
+
     public String getTokenHash() {
         return tokenHash;
     }
@@ -48,12 +61,36 @@ public class RefreshSession {
         this.expiresAt = expiresAt;
     }
 
+    public LocalDateTime getFamilyExpiresAt() {
+        return familyExpiresAt;
+    }
+
+    public void setFamilyExpiresAt(LocalDateTime familyExpiresAt) {
+        this.familyExpiresAt = familyExpiresAt;
+    }
+
     public LocalDateTime getRevokedAt() {
         return revokedAt;
     }
 
     public void setRevokedAt(LocalDateTime revokedAt) {
         this.revokedAt = revokedAt;
+    }
+
+    public String getRevokedReason() {
+        return revokedReason;
+    }
+
+    public void setRevokedReason(String revokedReason) {
+        this.revokedReason = revokedReason;
+    }
+
+    public Long getReplacedBy() {
+        return replacedBy;
+    }
+
+    public void setReplacedBy(Long replacedBy) {
+        this.replacedBy = replacedBy;
     }
 
     public LocalDateTime getLastUsedAt() {
@@ -94,6 +131,14 @@ public class RefreshSession {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public LocalDateTime getUserCreatedAt() {

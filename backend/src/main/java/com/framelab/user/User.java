@@ -10,6 +10,7 @@ public class User {
     private String passwordHash;
     private String role;
     private String status;
+    private int tokenVersion;
     private LocalDateTime createdAt;
 
     public long getId() {
@@ -58,6 +59,14 @@ public class User {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public LocalDateTime getCreatedAt() {

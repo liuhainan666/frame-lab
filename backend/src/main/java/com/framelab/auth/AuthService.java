@@ -13,6 +13,7 @@ import com.framelab.user.User;
 import com.framelab.user.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -54,30 +55,50 @@ public class AuthService {
         loginRateLimiter.reset(email, ip);
         String refreshToken = refreshTokenService.issue(user.getId());
         AuthResponse response = new AuthResponse(
-                jwtTokenService.createAccessToken(new AuthUser(user.getId(), user.getEmail(), user.getRole())),
+                jwtTokenService.createAccessToken(
+                        new AuthUser(user.getId(), user.getEmail(), user.getRole(), user.getTokenVersion())),
                 "Bearer",
                 jwtTokenService.accessTokenTtlSeconds(),
                 UserView.from(user));
         return new AuthSession(response, refreshToken);
     }
 
-    public AuthResponse refresh(String rawRefreshToken) {
+    public AuthSession refresh(String rawRefreshToken) {
+        if (refreshTokenService.isRotationEnabled()) {
+            RotationOutcome outcome = refreshTokenService.rotate(rawRefreshToken);
+            if (!outcome.valid()) {
+                throw ApiException.of(ErrorCode.REFRESH_TOKEN_INVALID);
+            }
+            RotatedSession rotated = outcome.rotatedSession();
+            return new AuthSession(response(rotated.session()), rotated.refreshToken());
+        }
         RefreshSession session = refreshTokenService.findActive(rawRefreshToken);
         if (session == null || !"ACTIVE".equals(session.getStatus())) {
             throw ApiException.of(ErrorCode.REFRESH_TOKEN_INVALID);
         }
         refreshTokenService.touch(rawRefreshToken);
-        AuthUser authUser = new AuthUser(session.getUserId(), session.getEmail(), session.getRole());
-        return new AuthResponse(jwtTokenService.createAccessToken(authUser), "Bearer",
-                jwtTokenService.accessTokenTtlSeconds(), UserView.from(session));
+        return new AuthSession(response(session), null);
     }
 
     public void logout(String rawRefreshToken) {
-        refreshTokenService.revoke(rawRefreshToken);
+        refreshTokenService.revokeFamily(rawRefreshToken, "LOGOUT");
+    }
+
+    @Transactional
+    public void logoutAll(AuthUser authUser) {
+        userService.incrementTokenVersion(authUser.id());
+        refreshTokenService.revokeAllForUser(authUser.id(), "LOGOUT");
     }
 
     public UserView me(AuthUser authUser) {
         return UserView.from(userService.requireActive(authUser.id()));
+    }
+
+    private AuthResponse response(RefreshSession session) {
+        AuthUser authUser = new AuthUser(session.getUserId(), session.getEmail(), session.getRole(),
+                session.getTokenVersion());
+        return new AuthResponse(jwtTokenService.createAccessToken(authUser), "Bearer",
+                jwtTokenService.accessTokenTtlSeconds(), UserView.from(session));
     }
 
     private String normalizeEmail(String email) {

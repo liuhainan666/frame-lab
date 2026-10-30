@@ -10,46 +10,77 @@
         <result column="password_hash" property="passwordHash"/>
         <result column="role" property="role"/>
         <result column="status" property="status"/>
+        <result column="token_version" property="tokenVersion"/>
         <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <resultMap id="authStateMap" type="com.framelab.user.UserAuthState">
+        <result column="token_version" property="tokenVersion"/>
+        <result column="status" property="status"/>
     </resultMap>
 
     <resultMap id="refreshSessionMap" type="com.framelab.user.RefreshSession">
         <id column="token_id" property="tokenId"/>
         <result column="user_id" property="userId"/>
+        <result column="family_id" property="familyId"/>
         <result column="token_hash" property="tokenHash"/>
         <result column="expires_at" property="expiresAt"/>
+        <result column="family_expires_at" property="familyExpiresAt"/>
         <result column="revoked_at" property="revokedAt"/>
+        <result column="revoked_reason" property="revokedReason"/>
+        <result column="replaced_by_id" property="replacedBy"/>
         <result column="last_used_at" property="lastUsedAt"/>
         <result column="email" property="email"/>
         <result column="display_name" property="displayName"/>
         <result column="role" property="role"/>
         <result column="status" property="status"/>
+        <result column="token_version" property="tokenVersion"/>
         <result column="user_created_at" property="userCreatedAt"/>
     </resultMap>
 
+    <sql id="refreshSessionColumns">
+        SELECT rt.id AS token_id,
+               rt.user_id,
+               rt.family_id,
+               rt.token_hash,
+               rt.expires_at,
+               rt.family_expires_at,
+               rt.revoked_at,
+               rt.revoked_reason,
+               rt.replaced_by_id,
+               rt.last_used_at,
+               u.email,
+               u.display_name,
+               u.role,
+               u.status,
+               u.token_version,
+               u.created_at AS user_created_at
+          FROM refresh_token rt
+          JOIN app_user u ON u.id = rt.user_id
+    </sql>
+
     <select id="findByEmail" resultMap="userMap">
-        SELECT id, email, display_name, password_hash, role, status, created_at
+        SELECT id, email, display_name, password_hash, role, status, token_version, created_at
           FROM app_user
          WHERE email = #{email}
     </select>
 
     <select id="findById" resultMap="userMap">
-        SELECT id, email, display_name, password_hash, role, status, created_at
+        SELECT id, email, display_name, password_hash, role, status, token_version, created_at
           FROM app_user
          WHERE id = #{id}
     </select>
 
-    <insert id="insertRefreshToken">
-        INSERT INTO refresh_token (user_id, token_hash, expires_at)
-        VALUES (#{userId}, #{tokenHash}, TIMESTAMPADD(SECOND, #{ttlSeconds}, UTC_TIMESTAMP(3)))
-    </insert>
+    <select id="findAuthState" resultMap="authStateMap">
+        SELECT token_version, status
+          FROM app_user
+         WHERE id = #{id}
+    </select>
 
-    <update id="revokeRefreshToken">
-        UPDATE refresh_token
-           SET revoked_at = UTC_TIMESTAMP(3)
-         WHERE token_hash = #{tokenHash}
-           AND revoked_at IS NULL
-    </update>
+    <insert id="insertRefreshToken" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO refresh_token (user_id, family_id, token_hash, expires_at, family_expires_at)
+        VALUES (#{userId}, #{familyId}, #{tokenHash}, #{familyExpiresAt}, #{familyExpiresAt})
+    </insert>
 
     <update id="touchRefreshToken">
         UPDATE refresh_token
@@ -59,21 +90,47 @@
     </update>
 
     <select id="findActiveSession" resultMap="refreshSessionMap">
-        SELECT rt.id AS token_id,
-               rt.user_id,
-               rt.token_hash,
-               rt.expires_at,
-               rt.revoked_at,
-               rt.last_used_at,
-               u.email,
-               u.display_name,
-               u.role,
-               u.status,
-               u.created_at AS user_created_at
-          FROM refresh_token rt
-          JOIN app_user u ON u.id = rt.user_id
+        <include refid="refreshSessionColumns"/>
          WHERE rt.token_hash = #{tokenHash}
            AND rt.revoked_at IS NULL
            AND rt.expires_at > UTC_TIMESTAMP(3)
     </select>
+
+    <select id="findSessionForUpdate" resultMap="refreshSessionMap">
+        <include refid="refreshSessionColumns"/>
+         WHERE rt.token_hash = #{tokenHash}
+           FOR UPDATE OF rt
+    </select>
+
+    <update id="markRotated">
+        UPDATE refresh_token
+           SET revoked_at = UTC_TIMESTAMP(3),
+               revoked_reason = 'ROTATED',
+               replaced_by_id = #{replacedBy},
+               last_used_at = UTC_TIMESTAMP(3)
+         WHERE id = #{id}
+           AND revoked_at IS NULL
+    </update>
+
+    <update id="revokeFamily">
+        UPDATE refresh_token
+           SET revoked_at = UTC_TIMESTAMP(3),
+               revoked_reason = #{reason}
+         WHERE family_id = #{familyId}
+           AND revoked_at IS NULL
+    </update>
+
+    <update id="revokeAllForUser">
+        UPDATE refresh_token
+           SET revoked_at = UTC_TIMESTAMP(3),
+               revoked_reason = #{reason}
+         WHERE user_id = #{userId}
+           AND revoked_at IS NULL
+    </update>
+
+    <update id="incrementTokenVersion">
+        UPDATE app_user
+           SET token_version = token_version + 1
+         WHERE id = #{id}
+    </update>
 </mapper>

@@ -21,21 +21,24 @@ class JwtTokenServiceTest {
     void createsAndParsesAccessToken() {
         JwtTokenService service = service(SECRET, "framelab-api", "framelab-web", Clock.fixed(NOW, ZoneOffset.UTC));
 
-        String token = service.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER"));
+        String token = service.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER", 7));
 
         AuthUser parsed = service.parse(token);
         assertThat(parsed.id()).isEqualTo(1);
         assertThat(parsed.email()).isEqualTo("demo@framelab.local");
         assertThat(parsed.role()).isEqualTo("USER");
+        assertThat(parsed.tokenVersion()).isEqualTo(7);
         assertThat(service.accessTokenTtlSeconds()).isEqualTo(900);
     }
 
     @Test
     void rejectsTamperedSignature() {
         JwtTokenService service = service(SECRET, "framelab-api", "framelab-web", Clock.fixed(NOW, ZoneOffset.UTC));
-        String token = service.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER"));
-        char replacement = token.endsWith("A") ? 'B' : 'A';
-        String tampered = token.substring(0, token.length() - 1) + replacement;
+        String token = service.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER", 0));
+        String[] parts = token.split("\\.");
+        char[] signature = parts[2].toCharArray();
+        signature[0] = signature[0] == 'A' ? 'B' : 'A';
+        String tampered = parts[0] + "." + parts[1] + "." + new String(signature);
 
         assertThatThrownBy(() -> service.parse(tampered)).isInstanceOf(TokenInvalidException.class);
     }
@@ -43,7 +46,7 @@ class JwtTokenServiceTest {
     @Test
     void rejectsWrongIssuerAudienceOrSecret() {
         JwtTokenService signer = service(SECRET, "framelab-api", "framelab-web", Clock.fixed(NOW, ZoneOffset.UTC));
-        String token = signer.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER"));
+        String token = signer.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER", 0));
 
         JwtTokenService wrongIssuer = service(SECRET, "other-issuer", "framelab-web",
                 Clock.fixed(NOW, ZoneOffset.UTC));
@@ -61,7 +64,7 @@ class JwtTokenServiceTest {
     @Test
     void rejectsExpiredToken() {
         JwtTokenService signer = service(SECRET, "framelab-api", "framelab-web", Clock.fixed(NOW, ZoneOffset.UTC));
-        String token = signer.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER"));
+        String token = signer.createAccessToken(new AuthUser(1, "demo@framelab.local", "USER", 0));
         JwtTokenService later = service(SECRET, "framelab-api", "framelab-web",
                 Clock.fixed(NOW.plus(Duration.ofMinutes(16)), ZoneOffset.UTC));
 

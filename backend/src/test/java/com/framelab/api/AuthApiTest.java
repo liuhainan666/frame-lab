@@ -86,30 +86,152 @@ class AuthApiTest extends ApiIntegrationTestSupport {
     }
 
     @Test
-    void refreshAndLogoutFollowSessionContract() throws Exception {
+    void refreshRotatesTokenAndSetsNewCookie() throws Exception {
         LoginResult login = login("demo@framelab.local", "Demo1234!");
 
         MvcResult refreshed = mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
                 .andExpect(status().isOk())
-                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE))
+                .andExpect(header().exists(HttpHeaders.SET_COOKIE))
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.id").value(1))
                 .andReturn();
-        assertThat(refreshed.getResponse().getHeader(HttpHeaders.SET_COOKIE)).isNull();
 
-        MvcResult logout = mockMvc.perform(post("/api/auth/logout").cookie(refreshCookie(login.refreshToken())))
+        String rotatedToken = refreshToken(refreshed);
+        assertThat(rotatedToken).isNotBlank().isNotEqualTo(login.refreshToken());
+
+        String storedFamily = jdbcTemplate.queryForObject(
+                "SELECT family_id FROM refresh_token WHERE token_hash = ?",
+                String.class, RefreshTokenService.hash(login.refreshToken()));
+        String rotatedFamily = jdbcTemplate.queryForObject(
+                "SELECT family_id FROM refresh_token WHERE token_hash = ?",
+                String.class, RefreshTokenService.hash(rotatedToken));
+        assertThat(rotatedFamily).isEqualTo(storedFamily);
+
+        String reason = jdbcTemplate.queryForObject(
+                "SELECT revoked_reason FROM refresh_token WHERE token_hash = ?",
+                String.class, RefreshTokenService.hash(login.refreshToken()));
+        Long replacedBy = jdbcTemplate.queryForObject(
+                "SELECT replaced_by_id FROM refresh_token WHERE token_hash = ?",
+                Long.class, RefreshTokenService.hash(login.refreshToken()));
+        assertThat(reason).isEqualTo("ROTATED");
+        assertThat(replacedBy).isNotNull();
+
+        MvcResult logout = mockMvc.perform(post("/api/auth/logout").cookie(refreshCookie(rotatedToken)))
                 .andExpect(status().isNoContent())
                 .andReturn();
         assertThat(logout.getResponse().getHeader(HttpHeaders.SET_COOKIE))
                 .contains("framelab_rt=;")
                 .contains("Max-Age=0");
 
-        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(rotatedToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
-        Integer revoked = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM refresh_token WHERE revoked_at IS NOT NULL", Integer.class);
-        assertThat(revoked).isPositive();
+    }
+
+    @Test
+    void rotatedTokenWithinGraceDoesNotLogoutOtherTabs() throws Exception {
+        LoginResult login = login("demo@framelab.local", "Demo1234!");
+
+        MvcResult first = mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+                .andExpect(status().isOk())
+                .andReturn();
+        String firstRotated = refreshToken(first);
+
+        MvcResult second = mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+                .andExpect(status().isOk())
+                .andReturn();
+        String secondRotated = refreshToken(second);
+
+        assertThat(firstRotated).isNotEqualTo(secondRotated);
+        Integer active = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1) FROM refresh_token
+                 WHERE family_id = (SELECT family_id FROM refresh_token WHERE token_hash = ?)
+                   AND revoked_at IS NULL
+                """, Integer.class, RefreshTokenService.hash(firstRotated));
+        assertThat(active).isEqualTo(2);
+    }
+
+    @Test
+    void reusedRotatedTokenOutsideGraceRevokesFamily() throws Exception {
+        LoginResult login = login("demo@framelab.local", "Demo1234!");
+
+        MvcResult refreshed = mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+                .andExpect(status().isOk())
+                .andReturn();
+        String rotatedToken = refreshToken(refreshed);
+
+        jdbcTemplate.update("""
+                UPDATE refresh_token
+                   SET revoked_at = TIMESTAMPADD(SECOND, -60, UTC_TIMESTAMP(3))
+                 WHERE token_hash = ?
+                """, RefreshTokenService.hash(login.refreshToken()));
+
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().exists(HttpHeaders.SET_COOKIE))
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
+
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(rotatedToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_INVALID"));
+
+        Integer active = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1) FROM refresh_token
+                 WHERE family_id = (SELECT family_id FROM refresh_token WHERE token_hash = ?)
+                   AND revoked_at IS NULL
+                """, Integer.class, RefreshTokenService.hash(rotatedToken));
+        assertThat(active).isZero();
+    }
+
+    @Test
+    void disabledUserAccessTokenIsRejectedImmediately() throws Exception {
+        LoginResult login = login("demo@framelab.local", "Demo1234!");
+        jdbcTemplate.update("UPDATE app_user SET status = 'DISABLED' WHERE id = 1");
+
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(login)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+    }
+
+    @Test
+    void logoutAllRevokesAccessAndRefreshTokens() throws Exception {
+        LoginResult first = login("demo@framelab.local", "Demo1234!");
+        LoginResult second = login("demo@framelab.local", "Demo1234!");
+
+        MvcResult logout = mockMvc.perform(post("/api/auth/logout-all")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(first)))
+                .andExpect(status().isNoContent())
+                .andReturn();
+        assertThat(logout.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                .contains("framelab_rt=;")
+                .contains("Max-Age=0");
+
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(first)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(first.refreshToken())))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(second.refreshToken())))
+                .andExpect(status().isUnauthorized());
+
+        Integer version = jdbcTemplate.queryForObject(
+                "SELECT token_version FROM app_user WHERE id = 1", Integer.class);
+        assertThat(version).isEqualTo(1);
+    }
+
+    @Test
+    void rotationCanBeDisabledForRollback() throws Exception {
+        LoginResult login = login("demo@framelab.local", "Demo1234!");
+        securityProperties.setRefreshRotationEnabled(false);
+        try {
+            mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+                    .andExpect(status().isOk())
+                    .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+            mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(login.refreshToken())))
+                    .andExpect(status().isOk());
+        } finally {
+            securityProperties.setRefreshRotationEnabled(true);
+        }
     }
 
     @Test
