@@ -230,6 +230,25 @@
            AND status = 'RUNNING'
     </update>
 
+    <update id="markRetrying">
+        UPDATE task
+           SET status = 'RETRYING',
+               current_stage = #{stage},
+               next_retry_at = DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{delaySeconds} SECOND),
+               last_error_code = #{errorCode},
+               last_error_detail = #{errorDetail},
+               last_error_simulated = #{errorSimulated},
+               retry_count = retry_count + 1,
+               finished_at = NULL,
+               failure_code = NULL,
+               failure_args = NULL,
+               failure_detail = NULL,
+               failure_simulated = 0,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
     <update id="markFailed">
         UPDATE task
            SET status = 'FAILED',
@@ -242,6 +261,32 @@
                last_error_detail = NULL,
                last_error_simulated = NULL,
                finished_at = UTC_TIMESTAMP(3),
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status = 'RUNNING'
+    </update>
+
+    <select id="findRunningIdsForUpdate" resultType="string">
+        SELECT id
+          FROM task
+         WHERE status = 'RUNNING'
+         ORDER BY created_at, id
+         FOR UPDATE
+    </select>
+
+    <update id="markQueuedForResume">
+        UPDATE task
+           SET status = 'QUEUED',
+               next_retry_at = NULL,
+               last_error_code = NULL,
+               last_error_detail = NULL,
+               last_error_simulated = NULL,
+               failure_code = NULL,
+               failure_args = NULL,
+               failure_detail = NULL,
+               failure_simulated = 0,
+               finished_at = NULL,
+               resume_count = resume_count + 1,
                row_version = row_version + 1
          WHERE id = #{id}
            AND status = 'RUNNING'

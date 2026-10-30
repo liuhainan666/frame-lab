@@ -51,9 +51,20 @@ public interface TaskMapper {
                       @Param("height") int height,
                       @Param("sizeBytes") long sizeBytes);
 
+    int markRetrying(@Param("id") String id,
+                     @Param("stage") TaskStage stage,
+                     @Param("errorCode") String errorCode,
+                     @Param("errorDetail") String errorDetail,
+                     @Param("errorSimulated") boolean errorSimulated,
+                     @Param("delaySeconds") int delaySeconds);
+
     int markFailed(@Param("id") String id,
                    @Param("failureCode") String failureCode,
                    @Param("failureArgs") String failureArgs,
                    @Param("failureDetail") String failureDetail,
                    @Param("failureSimulated") boolean failureSimulated);
+
+    List<String> findRunningIdsForUpdate();
+
+    int markQueuedForResume(@Param("id") String id);
 }
