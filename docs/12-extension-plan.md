@@ -16,15 +16,15 @@
 | 不默认做 | 多实例、Redis、对象存储、SSE、任务下载/删除/重做、步骤内部续跑；除非需求变更并先改 01 |
 | 变更纪律 | 只新增 V3+ 迁移；API 向后兼容；文档、DDL、后端 DTO、前端类型、MSW、测试同批；不 push |
 
-> 执行状态（2026-10-30）：X0、X1 已完成，证据见 [x1-acceptance](evidence/extensions/x1-acceptance.md)；X2a 未开始。当前后端 102 项、前端 47 项测试通过。
+> 执行状态（2026-10-30）：X0、X1 已完成，证据见 [x1-acceptance](evidence/extensions/x1-acceptance.md)；X2a 未开始。完成开发端口 CORS 与顶部消息气泡修复后，当前后端 104 项、前端 49 项测试通过；修复证据见 [ux-toast-cors](evidence/extensions/ux-toast-cors.md)。
 
 ## 1. 基线与盘点口径
 
 ### 1.1 当前基线
 
-- 代码与文档以 `49030e3` 为当前 HEAD，验收 commit 为 `dc06422`；工作区干净。
-- 后端：Java 21 / Spring Boot 3.4.13 / Spring Security 6.4 / MyBatis 3.0.5 / MySQL 8.4 / Flyway；`./mvnw -B verify` 97 项测试通过。
-- 前端：Next.js 15.5.28 / React 19.1.10 / TS 5.9.3 / Tailwind 4.3.3 / TanStack Query 5 / Zustand 5 / Vitest + RTL + MSW；13 个测试文件、45 项测试，`lint` / `typecheck` / `test` / `build` 通过。
+- X0 基线快照为 `03516c4`，X1 结束 HEAD 为 `257f871`，P0 验收 commit 为 `dc06422`；X1 结束后工作区干净。
+- 后端：Java 21 / Spring Boot 3.4.13 / Spring Security 6.4 / MyBatis 3.0.5 / MySQL 8.4 / Flyway；`./mvnw -B verify` 104 项测试通过。
+- 前端：Next.js 15.5.28 / React 19.1.10 / TS 5.9.3 / Tailwind 4.3.3 / TanStack Query 5 / Zustand 5 / Vitest + RTL + MSW；14 个测试文件、49 项测试，`lint` / `typecheck` / `test` / `build` 通过。
 - 交付：Docker Compose 全栈、GitHub Actions、README、M7/M8 验收证据齐全；干净环境 15/15 与全量 21/21 通过。
 - 基线时的已知限制：单实例、本地存储、步骤级续跑、有界重试、无 URL 语言前缀、刷新令牌不轮换、轮询而非推送。X1 已补上刷新轮换、重用检测、访问令牌版本与退出全部。
 
