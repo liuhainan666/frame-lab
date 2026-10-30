@@ -109,7 +109,7 @@ pnpm install --frozen-lockfile
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 ```
 
-默认 `http://localhost:3000`。开发服务器端口变化时，后端 `FRAMELAB_CORS_ALLOWED_ORIGINS` 要同步。
+默认 `http://localhost:3000`。`dev` profile 已允许 `http://localhost:*` / `http://127.0.0.1:*`，Next.js 自动切换端口也能登录；`docker` 与生产 profile 仍只接受 `FRAMELAB_CORS_ALLOWED_ORIGINS` 中的精确来源。
 
 ## 5. 配置
 
@@ -123,6 +123,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 pnpm dev
 | `MYSQL_PORT` | `3306` | MySQL 宿主端口，仅绑定 `127.0.0.1` |
 | `FRAMELAB_JWT_SECRET` | 演示值 | 至少 32 字节；生产 profile 必须替换 |
 | `FRAMELAB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | 允许的前端源，逗号分隔 |
+| `FRAMELAB_CORS_ALLOWED_ORIGIN_PATTERNS` | dev 默认 localhost 任意端口 | 仅 dev 生效；docker/生产留空 |
 | `FRAMELAB_COOKIE_SECURE` | `false` | 生产 HTTPS 设为 `true` |
 | `FRAMELAB_REFRESH_ROTATION_ENABLED` | `true` | 刷新令牌轮换；紧急回滚时可关闭 |
 | `FRAMELAB_REFRESH_ROTATION_GRACE` | `30s` | 轮换后旧令牌的并发宽限 |

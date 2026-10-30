@@ -714,8 +714,9 @@ http
 ### 9.3 CORS 与 Cookie
 
 - 允许来源来自 `FRAMELAB_CORS_ALLOWED_ORIGINS`，逗号分隔；默认 `http://localhost:3000`。
+- `dev` profile 额外允许 `http://localhost:*` 与 `http://127.0.0.1:*`（可用 `FRAMELAB_CORS_ALLOWED_ORIGIN_PATTERNS` 覆盖），避免 Next.js 因 3000 被占用自动切换端口时登录被 CORS 拒绝；`docker` 与生产 profile 不启用端口通配。
 - `allowCredentials=true`；允许方法 `GET,POST,PUT,DELETE,OPTIONS`；允许头 `Authorization, Content-Type, Accept-Language`；暴露 `Location, Idempotent-Replay, X-Request-Id, Retry-After, Content-Language, Content-Disposition`。
-- 不允许 `*` + credentials 的组合。
+- 不允许 `*` + credentials 的组合；通配仅用于本地回环地址的端口段。
 - 开发时前端与后端都使用 `localhost`（不要一个 `127.0.0.1` 一个 `localhost`），否则 Cookie 域不一致。
 - 生产建议同域反向代理（`/api` 与 `/assets` 转发到 Java），Cookie 路径不变。
 
@@ -794,7 +795,8 @@ AcceptLanguageFilter（OncePerRequestFilter）
 | `FRAMELAB_REFRESH_ROTATION_ENABLED` | `true` | 关闭后回退为不轮换，用于紧急回滚 |
 | `FRAMELAB_REFRESH_ROTATION_GRACE` | `30s` | 轮换后旧令牌的并发宽限 |
 | `FRAMELAB_STORAGE_ROOT` | `./storage` | 素材与结果根目录 |
-| `FRAMELAB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | 逗号分隔 |
+| `FRAMELAB_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | 逗号分隔的精确来源 |
+| `FRAMELAB_CORS_ALLOWED_ORIGIN_PATTERNS` | dev：`http://localhost:*,http://127.0.0.1:*` | 仅 dev 默认启用；docker/生产留空 |
 | `FRAMELAB_COOKIE_SECURE` | `false`（本地 dev/docker 演示） | 生产 HTTPS 必须 true |
 | `FRAMELAB_WORKER_THREADS` | `2` | 并发任务数 |
 | `FRAMELAB_WORKER_POLL_MS` | `500` | 认领 `QUEUED` / 到期 `RETRYING` 的轮询间隔 |

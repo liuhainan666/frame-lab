@@ -134,7 +134,7 @@
 | FE-U-09 | 受理后状态 | 按钮恢复；toast；右栏出现 QUEUED 卡；不显示“提交中” |
 | FE-U-10 | 多任务独立 | 3 张卡不同状态；更新一张不影响其他 |
 | FE-U-11 | 轮询启停 | 有 QUEUED/RUNNING/RETRYING 才轮询；全部终态后停止（fake timers） |
-| FE-U-12 | 查询异常 | MSW 500/断网：卡片保留原状态；出现提示条；不显示失败 |
+| FE-U-12 | 查询异常 | MSW 500/断网：卡片保留原状态；出现顶部常驻 toast；不显示失败 |
 | FE-U-13 | 查询恢复 | 重试成功后提示消失，状态更新 |
 | FE-U-14 | 失败原因 | 失败卡显示阶段 + 原因 + 尝试次数；不显示“任务失败”占位 |
 | FE-U-15 | 刷新恢复 | 启动 refresh 成功；历史加载；活跃任务继续轮询 |
@@ -463,6 +463,8 @@ MYSQL_PORT=3306
 # 至少 32 字节；生产必须替换
 FRAMELAB_JWT_SECRET=framelab-demo-secret-change-me-32bytes-minimum
 FRAMELAB_CORS_ALLOWED_ORIGINS=http://localhost:3000
+# 仅 dev 需要；留空则不启用端口通配
+# FRAMELAB_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:*,http://127.0.0.1:*
 FRAMELAB_COOKIE_SECURE=false
 FRAMELAB_REFRESH_ROTATION_ENABLED=true
 FRAMELAB_REFRESH_ROTATION_GRACE=30s
@@ -698,7 +700,7 @@ docker compose cp backend:/app/storage ./storage-backup
 | 任务停在 RETRYING | 未到 `next_retry_at`、worker 停止、数据库时间异常 | 查看日志与 `next_retry_at`；恢复 worker；不要手工改状态 |
 | 中英文切换后仍显示旧文案 | 查询缓存未失效、旧请求覆盖 | 检查 query key 是否含 locale；切换时取消在途请求并重取 |
 | 结果 404/500 | storage 卷权限、文件被清理 | 检查卷挂载与权限；从备份恢复 |
-| 前端请求 CORS 失败 | `FRAMELAB_CORS_ALLOWED_ORIGINS` 与访问地址不一致 | 改为实际前端 origin |
+| 前端请求 CORS 失败 | `FRAMELAB_CORS_ALLOWED_ORIGINS` 与访问地址不一致；`dev` profile 已默认允许 localhost 任意端口，`docker`/生产需显式加入实际 origin | 改为实际前端 origin |
 | 修改后端地址不生效 | `NEXT_PUBLIC_*` 构建期内联 | `docker compose build --no-cache frontend` |
 | 中文水印变方块 | 结果图绘制了中文但容器无字体 | 按设计只用英文水印；或打包中文字体（P1） |
 
