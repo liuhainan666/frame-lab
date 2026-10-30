@@ -9,6 +9,7 @@
 - 参考界面：[assets/reference](assets/reference) 下 UI-01 ～ UI-04 四张截图
 - 开发计划：[11-development-plan.md](11-development-plan.md)，含里程碑、任务依赖、页面逐项对齐与验收门禁
 - 扩展计划：[12-extension-plan.md](12-extension-plan.md)，含 P1 盘点、架构后续方向、决策点与回滚规则
+- 特效与视频提案：[13-effects-video-templates.md](13-effects-video-templates.md)，设计阶段，未实施
 - 扩展进度：X0、X1 已完成（刷新轮换、访问令牌即时失效、退出全部）；X2a 未开始，证据见 [x1-acceptance](evidence/extensions/x1-acceptance.md)
 
 ## 1. 目标
@@ -94,8 +95,9 @@
 | [10-reliability-i18n.md](10-reliability-i18n.md) | 受理幂等、自动重试、断点续跑、国际化的完整设计与演示 | 后端 / 前端 / 评审 |
 | [11-development-plan.md](11-development-plan.md) | 开发阶段、任务依赖、页面实施、参考图对齐与阶段门禁 | 作者 / 评审 |
 | [12-extension-plan.md](12-extension-plan.md) | P1 与架构后续方向盘点、分阶段扩展计划、决策点、回滚与证据 | 作者 / 评审 |
+| [13-effects-video-templates.md](13-effects-video-templates.md) | 模板特效（调色/轻人像）与照片轮播视频模板设计提案；未实施 | 产品 / 后端 / 前端 / 评审 |
 
-阅读顺序建议：01 → 02 → 04 → 06（产品与契约）→ 03 → 05（实现）→ 10（可靠性扩展）→ 11（实施顺序）→ 12（后续扩展）→ 07 → 08 → 09（交付）。
+阅读顺序建议：01 → 02 → 04 → 06（产品与契约）→ 03 → 05（实现）→ 10（可靠性扩展）→ 11（实施顺序）→ 12（后续扩展）→ 13（特效与视频提案）→ 07 → 08 → 09（交付）。
 
 ## 6. 六条硬规则
 
