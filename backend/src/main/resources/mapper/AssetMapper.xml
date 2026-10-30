@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.asset.AssetMapper">
+
+    <resultMap id="assetMap" type="com.framelab.asset.UploadAsset">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="storage_key" property="storageKey"/>
+        <result column="mime_type" property="mimeType"/>
+        <result column="size_bytes" property="sizeBytes"/>
+        <result column="width" property="width"/>
+        <result column="height" property="height"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO upload_asset (id, user_id, storage_key, mime_type, size_bytes, width, height)
+        VALUES (#{id}, #{userId}, #{storageKey}, #{mimeType}, #{sizeBytes}, #{width}, #{height})
+    </insert>
+
+    <select id="findOwned" resultMap="assetMap">
+        SELECT id, user_id, storage_key, mime_type, size_bytes, width, height, created_at
+          FROM upload_asset
+         WHERE id = #{id}
+           AND user_id = #{userId}
+    </select>
+
+    <select id="countTaskReferences" resultType="int">
+        SELECT COUNT(1)
+          FROM task_material
+         WHERE asset_id = #{assetId}
+    </select>
+
+    <delete id="deleteOwned">
+        DELETE FROM upload_asset
+         WHERE id = #{id}
+           AND user_id = #{userId}
+    </delete>
+</mapper>
