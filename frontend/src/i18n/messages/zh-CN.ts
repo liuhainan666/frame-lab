@@ -191,7 +191,7 @@ export const zhCN = {
     }
   },
   studio: {
-    back: "← 模板库",
+    back: "模板库",
     requirementsPhotos: "{count} 张图片",
     requirementsMime: "JPG / PNG",
     requirementsSize: "每张 ≤ {size}",

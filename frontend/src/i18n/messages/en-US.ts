@@ -193,7 +193,7 @@ export const enUS = {
     }
   },
   studio: {
-    back: "← Templates",
+    back: "Templates",
     requirementsPhotos: "{count} photos",
     requirementsMime: "JPG / PNG",
     requirementsSize: "Up to {size} each",
