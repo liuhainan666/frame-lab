@@ -1,0 +1,7 @@
+framelab:
+  worker:
+    enabled: false
+  retry:
+    max-step-attempts: 3
+    backoff-base-seconds: 2
+    backoff-max-seconds: 30
