@@ -46,6 +46,27 @@ public class LocalObjectStorage implements ObjectStorage {
     }
 
     @Override
+    public StoredObject writeResult(long userId, String taskId, byte[] bytes) {
+        String storageKey = "results/" + userId + "/" + taskId + ".jpg";
+        Path target = resolve(storageKey);
+        Path temp = resolve("tmp/task-" + taskId + "/result-" + UUID.randomUUID() + ".jpg");
+        try {
+            Files.createDirectories(target.getParent());
+            Files.createDirectories(temp.getParent());
+            try (FileChannel channel = FileChannel.open(temp,
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                channel.write(ByteBuffer.wrap(bytes));
+                channel.force(true);
+            }
+            moveAtomically(temp, target);
+            return new StoredObject(storageKey);
+        } catch (IOException ex) {
+            deleteQuietly(temp);
+            throw new StorageException("Unable to persist result", ex);
+        }
+    }
+
+    @Override
     public Resource open(String storageKey) {
         Path path = resolve(storageKey);
         if (!Files.isRegularFile(path)) {
@@ -60,6 +81,19 @@ public class LocalObjectStorage implements ObjectStorage {
             Files.deleteIfExists(resolve(storageKey));
         } catch (IOException ex) {
             throw new StorageException("Unable to delete stored object", ex);
+        }
+    }
+
+    @Override
+    public void deleteTaskTemp(String taskId) {
+        Path directory = resolve("tmp/task-" + taskId);
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            paths.sorted(java.util.Comparator.reverseOrder()).forEach(this::deleteQuietly);
+        } catch (IOException ex) {
+            throw new StorageException("Unable to clean task temporary files", ex);
         }
     }
 
