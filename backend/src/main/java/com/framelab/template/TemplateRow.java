@@ -7,9 +7,13 @@ public class TemplateRow {
     private String description;
     private String categoryId;
     private String categoryName;
+    private TemplateKind kind;
     private String coverPath;
     private int requiredImageCount;
     private String acceptedMimeTypes;
+    private String renderSpec;
+    private String effectTags;
+    private TemplateKind outputKind;
     private long maxFileSizeBytes;
     private int canvasWidth;
     private int canvasHeight;
@@ -53,6 +57,38 @@ public class TemplateRow {
 
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+
+    public TemplateKind getKind() {
+        return kind;
+    }
+
+    public void setKind(TemplateKind kind) {
+        this.kind = kind;
+    }
+
+    public String getRenderSpec() {
+        return renderSpec;
+    }
+
+    public void setRenderSpec(String renderSpec) {
+        this.renderSpec = renderSpec;
+    }
+
+    public String getEffectTags() {
+        return effectTags;
+    }
+
+    public void setEffectTags(String effectTags) {
+        this.effectTags = effectTags;
+    }
+
+    public TemplateKind getOutputKind() {
+        return outputKind;
+    }
+
+    public void setOutputKind(TemplateKind outputKind) {
+        this.outputKind = outputKind;
     }
 
     public String getCoverPath() {

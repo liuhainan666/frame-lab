@@ -33,6 +33,9 @@ public enum ErrorCode {
 
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "rate-limited"),
 
+    TEMPLATE_SPEC_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "template-spec-invalid"),
+    VIDEO_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "video-unavailable"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal-error"),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "service-unavailable");
 

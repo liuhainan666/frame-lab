@@ -15,9 +15,13 @@
         <result column="description" property="description"/>
         <result column="category_id" property="categoryId"/>
         <result column="category_name" property="categoryName"/>
+        <result column="kind" property="kind"/>
         <result column="cover_path" property="coverPath"/>
         <result column="required_image_count" property="requiredImageCount"/>
         <result column="accepted_mime_types" property="acceptedMimeTypes"/>
+        <result column="render_spec" property="renderSpec"/>
+        <result column="effect_tags" property="effectTags"/>
+        <result column="output_kind" property="outputKind"/>
         <result column="max_file_size_bytes" property="maxFileSizeBytes"/>
         <result column="canvas_width" property="canvasWidth"/>
         <result column="canvas_height" property="canvasHeight"/>
@@ -30,9 +34,13 @@
         COALESCE(tt.description, t.description) AS description,
         t.category_id,
         COALESCE(ct.name, c.name) AS category_name,
+        t.kind,
         t.cover_path,
         t.required_image_count,
         t.accepted_mime_types,
+        t.render_spec,
+        t.effect_tags,
+        t.output_kind,
         t.max_file_size_bytes,
         t.canvas_width,
         t.canvas_height,
