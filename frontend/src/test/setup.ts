@@ -36,6 +36,13 @@ beforeAll(() => {
   Element.prototype.hasPointerCapture = () => false;
   Element.prototype.setPointerCapture = () => {};
   Element.prototype.releasePointerCapture = () => {};
+
+  if (typeof URL.createObjectURL !== "function") {
+    URL.createObjectURL = () => "blob:test-object-url";
+  }
+  if (typeof URL.revokeObjectURL !== "function") {
+    URL.revokeObjectURL = () => {};
+  }
 });
 
 afterEach(() => {
