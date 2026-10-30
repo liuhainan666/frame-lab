@@ -2,7 +2,7 @@
 
 深色画廊风格的素材制作网站：浏览模板、上传图片、提交三步异步制作任务，并在处理期间继续使用网站，最后查看个人历史与结果。前端使用 Next.js，后端使用 Spring Boot 3 + Spring Security + MyBatis，数据持久化到 MySQL 8.4。
 
-> 当前状态：M0 基线与仓库已就绪，下一步进入 M1 数据层。业务代码尚未实现；设计文档是开发与验收的唯一口径。
+> 当前状态：M1 数据层完成（Spring Boot 骨架、Flyway V1/V2、演示封面与迁移测试），下一步进入 M2 安全与基础 API。设计文档仍是开发与验收的唯一口径。
 
 ## 1. 文档入口
 
@@ -65,7 +65,7 @@
 | Node.js | 22 LTS 及以上 | 24.20.0 | 可用 |
 | pnpm | 与 `packageManager` 一致 | 12.16.1 | 已通过 corepack 启用 |
 | JDK | 21 LTS | 21.0.13 LTS（Microsoft OpenJDK） | 已安装；`JAVA_HOME` 已写入用户环境 |
-| Maven | 使用 Maven Wrapper | 尚未生成 | M1 创建 `mvnw` 后使用 |
+| Maven | 使用 Maven Wrapper | 3.10.0（随仓库 `mvnw`） | 可用 |
 | Docker | 支持 Compose 的近期版本 | 29.6.2 | 可用 |
 | Docker Compose | v2 及以上 | v5.3.1 | 可用 |
 
@@ -88,7 +88,16 @@ docker compose up --build
 
 完成后访问 `http://localhost:3000`，后端 `http://localhost:8080`。本地前后端分别启动、数据库初始化、演示账号与模拟控制命令将在 M8 写入本文件与 [docs/07](docs/07-testing-ci-deploy.md)。
 
-在 M8 之前，本仓库尚不能一键运行；请按 [docs/11-development-plan.md](docs/11-development-plan.md) 的阶段推进。
+在 M8 之前，本仓库尚不能一键启动完整应用；请按 [docs/11-development-plan.md](docs/11-development-plan.md) 的阶段推进。
+
+### 5.1 当前里程碑验证（M1）
+
+```bash
+cd backend
+./mvnw -B test
+```
+
+Testcontainers 会启动独立的 MySQL 8.4，执行 V1/V2 并校验 12 张表与种子行数。需要手工观察后端启动时，先启动 Compose 中的 MySQL，再以 `MYSQL_*` 环境变量运行 `spring-boot:run`。
 
 ## 6. 配置与安全
 
@@ -103,8 +112,8 @@ docker compose up --build
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
 | M0 | 仓库、忽略规则、环境与文档基线 | 完成 |
-| M1 | 数据库迁移与种子数据 | 下一步 |
-| M2 | 安全、错误/i18n、模板与素材接口 | 未开始 |
+| M1 | 数据库迁移与种子数据 | 完成 |
+| M2 | 安全、错误/i18n、模板与素材接口 | 下一步 |
 | M3 | 任务受理、流水线、模拟与结果 | 未开始 |
 | M4 | 幂等、重试、续跑 | 未开始 |
 | M5 | 前端底座与登录 | 未开始 |
@@ -112,17 +121,22 @@ docker compose up --build
 | M7 | 联调与验收 | 未开始 |
 | M8 | Compose、CI、README 与验收 commit | 未开始 |
 
-## 8. 交付状态（R-13）
+## 8. 已知限制（开发中）
+
+- Flyway 10.20.1 对 MySQL 8.4 会输出“支持未测试”的警告；V1/V2 已在 MySQL 8.4.13 上执行通过，升级 Flyway 时复核。
+- 前端、鉴权、任务接口与 Compose 全链路尚未实现，当前只完成数据库层。
+
+## 9. 交付状态（R-13）
 
 - [x] 设计与验收文档
 - [x] 开发计划与阶段门禁
 - [ ] 前后端完整源码
-- [ ] 数据库结构与初始化数据
+- [x] 数据库结构与初始化数据
 - [ ] 测试与 CI 配置
 - [ ] Docker Compose 一键启动
 - [ ] 演示脚本、AI 使用说明、已知限制
 - [ ] 验收 commit
 
-## 9. 参考界面
+## 10. 参考界面
 
 参考截图位于 [docs/assets/reference](docs/assets/reference)：UI-01 模板列表、UI-02 模板详情/上传、UI-03 处理中与历史、UI-04 账号。页面按“主布局与信息层级对齐、不逐像素复刻”的口径实现，逐页对照与差异登记见 [docs/11-development-plan.md](docs/11-development-plan.md#5-页面实施与参考图对齐)。
