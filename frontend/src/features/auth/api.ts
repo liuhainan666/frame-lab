@@ -32,3 +32,11 @@ export async function logout(): Promise<void> {
     useAuthStore.getState().clearSession();
   }
 }
+
+export async function logoutAll(): Promise<void> {
+  try {
+    await apiFetch<void>("/api/auth/logout-all", { method: "POST" });
+  } finally {
+    useAuthStore.getState().clearSession();
+  }
+}

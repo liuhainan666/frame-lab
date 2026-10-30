@@ -82,6 +82,7 @@ export const enUS = {
   account: {
     title: "Account",
     signOut: "Sign out",
+    signOutAll: "Sign out of all devices",
     roleUser: "Demo user",
     roleAdmin: "Administrator",
     joinedLabel: "Joined",

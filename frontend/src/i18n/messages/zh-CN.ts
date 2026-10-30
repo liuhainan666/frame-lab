@@ -80,6 +80,7 @@ export const zhCN = {
   account: {
     title: "账号",
     signOut: "退出登录",
+    signOutAll: "退出所有设备",
     roleUser: "演示用户",
     roleAdmin: "管理员",
     joinedLabel: "加入于",

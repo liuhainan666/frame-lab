@@ -1,9 +1,9 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { LogOut, ShieldOff } from "lucide-react";
 import { useState } from "react";
 
-import { logout } from "@/features/auth/api";
+import { logout, logoutAll } from "@/features/auth/api";
 import { useAuthStore } from "@/features/auth/store";
 import { formatDate } from "@/i18n/format";
 import { useI18n } from "@/i18n/provider";
@@ -20,6 +20,7 @@ export function AccountMenu() {
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signingOutAll, setSigningOutAll] = useState(false);
   const queryClient = useQueryClient();
 
   if (!user) {
@@ -36,6 +37,18 @@ export function AccountMenu() {
       queryClient.clear();
       setOpen(false);
       setSigningOut(false);
+      window.location.assign("/");
+    }
+  }
+
+  async function handleSignOutAll() {
+    setSigningOutAll(true);
+    try {
+      await logoutAll();
+    } finally {
+      queryClient.clear();
+      setOpen(false);
+      setSigningOutAll(false);
       window.location.assign("/");
     }
   }
@@ -93,10 +106,21 @@ export function AccountMenu() {
             variant="ghost"
             leadingIcon={<LogOut aria-hidden className="h-4 w-4" />}
             loading={signingOut}
+            disabled={signingOutAll}
             onClick={handleSignOut}
             className="w-full justify-start text-danger hover:bg-danger-soft hover:text-danger"
           >
             {t("account.signOut")}
+          </Button>
+          <Button
+            variant="ghost"
+            leadingIcon={<ShieldOff aria-hidden className="h-4 w-4" />}
+            loading={signingOutAll}
+            disabled={signingOut}
+            onClick={handleSignOutAll}
+            className="mt-2 w-full justify-start text-ink-muted hover:bg-surface-hover hover:text-ink"
+          >
+            {t("account.signOutAll")}
           </Button>
         </div>
         <p className="mt-4 text-center text-[11px] leading-4 text-ink-muted">
