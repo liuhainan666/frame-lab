@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, ShieldOff } from "lucide-react";
+import { ChevronRight, LogOut, Settings2, ShieldOff } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { logout, logoutAll } from "@/features/auth/api";
@@ -101,7 +102,18 @@ export function AccountMenu() {
           <BrandMark className="h-4 w-4 shrink-0 text-accent" />
           {t("account.scope")}
         </p>
-        <div className="mt-6 border-t border-line pt-5">
+        <Link
+          href="/settings"
+          onClick={() => setOpen(false)}
+          className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-line bg-surface/60 px-4 py-3 text-[13px] font-medium text-ink-secondary transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <span className="flex items-center gap-2">
+            <Settings2 aria-hidden className="h-4 w-4" />
+            {t("settings.title")}
+          </span>
+          <ChevronRight aria-hidden className="h-4 w-4 text-ink-muted" />
+        </Link>
+        <div className="mt-5 border-t border-line pt-5">
           <Button
             variant="ghost"
             leadingIcon={<LogOut aria-hidden className="h-4 w-4" />}

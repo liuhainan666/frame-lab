@@ -21,6 +21,7 @@ describe("账号弹层", () => {
 
     expect(await screen.findByRole("button", { name: "退出登录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "退出所有设备" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "个人设置" })).toHaveAttribute("href", "/settings");
   });
 
   it("英文界面显示对应文案", async () => {
