@@ -74,6 +74,13 @@ export function TaskCard({
       )}
     >
       {topLine ? <span aria-hidden className={cn("absolute inset-x-0 top-0 z-10 h-0.5", topLine)} /> : null}
+      {stale ? (
+        <span
+          aria-label={t("history.stale")}
+          title={t("history.stale")}
+          className="absolute right-3 top-3 z-10 h-2 w-2 rounded-full bg-warning"
+        />
+      ) : null}
 
       {task.status === "SUCCEEDED" && result.status === "ready" && result.url ? (
         <img
@@ -102,22 +109,13 @@ export function TaskCard({
       ) : null}
 
       <div className="relative flex h-full flex-col justify-between p-4">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-1 py-6 text-center">
           <div role="status" aria-live="polite">
             <StatusBadge status={effective} />
           </div>
-          {stale ? (
-            <span
-              aria-label={t("history.stale")}
-              title={t("history.stale")}
-              className="mt-1 h-2 w-2 rounded-full bg-warning"
-            />
-          ) : null}
-        </div>
 
-        <div className="flex min-h-0 flex-1 flex-col justify-center py-4">
           {effective === "QUEUED" ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col items-center gap-2">
               <Clock3 aria-hidden className="h-5 w-5 text-ink-muted" />
               <p className="text-[12px] leading-[18px] text-ink-secondary">{t("tasks.queuedHint")}</p>
               <p className="mono text-[11px] text-ink-muted">{time}</p>
@@ -125,7 +123,7 @@ export function TaskCard({
           ) : null}
 
           {effective === "RESUMING" ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col items-center gap-2">
               <RotateCw aria-hidden className="h-5 w-5 text-warning motion-safe:animate-[breathe_2s_ease-in-out_infinite]" />
               <p className="text-[12px] leading-[18px] text-ink-secondary">{t("tasks.resumingHint")}</p>
               {stageKey ? <p className="text-[11px] text-ink-muted">{t(stageKey)}</p> : null}
@@ -133,8 +131,8 @@ export function TaskCard({
           ) : null}
 
           {effective === "RUNNING" ? (
-            <div className="flex flex-col gap-3">
-              <StageStepper currentStage={task.currentStage} status={task.status} />
+            <div className="flex w-full flex-col items-center gap-3 text-center">
+              <StageStepper className="w-full" currentStage={task.currentStage} status={task.status} />
               <p className="text-[12px] leading-[18px] text-ink-secondary">
                 {t("tasks.attempt", { n: Math.max(1, task.retry.attemptCount) })}
                 <span className="mx-1 text-ink-muted">·</span>
@@ -144,7 +142,7 @@ export function TaskCard({
           ) : null}
 
           {effective === "RETRYING" ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col items-center gap-2">
               {failedStageKey ? (
                 <p className="text-[11px] font-medium text-warning">{t(failedStageKey)}</p>
               ) : null}
@@ -162,7 +160,7 @@ export function TaskCard({
           ) : null}
 
           {effective === "FAILED" ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col items-center gap-2">
               {failedStageKey ? (
                 <p className="text-[11px] font-medium text-danger">{t(failedStageKey)}</p>
               ) : null}
@@ -179,7 +177,7 @@ export function TaskCard({
           ) : null}
 
           {effective === "SUCCEEDED" ? (
-            <div className="flex flex-1 items-end justify-end">
+            <div className="flex flex-col items-center gap-2">
               <CheckCircle2 aria-hidden className="h-5 w-5 text-success" />
             </div>
           ) : null}
