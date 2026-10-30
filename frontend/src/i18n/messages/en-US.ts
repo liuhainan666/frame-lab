@@ -114,10 +114,8 @@ export const enUS = {
     demoNote: "Demo account. Data is stored in the deployed MySQL instance."
   },
   settings: {
-    eyebrow: "ACCOUNT / SETTINGS",
-    title: "Personal settings",
-    description: "Account, billing, and policy information. The demo does not connect to real payments.",
     listLabel: "Settings",
+    backToAccount: "Back to account",
     billing: "Manage Billing",
     terms: "Terms of Service",
     privacy: "Privacy Policy",

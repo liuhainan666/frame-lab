@@ -1,11 +1,13 @@
 "use client";
 
-import { ChevronRight, LogOut, Settings2, ShieldOff } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, LogOut, ShieldOff } from "lucide-react";
 import { useState } from "react";
 
 import { logout, logoutAll } from "@/features/auth/api";
 import { useAuthStore } from "@/features/auth/store";
+import { SettingsDetail } from "@/features/settings/components/settings-detail";
+import { SettingsList } from "@/features/settings/components/settings-list";
+import { SETTINGS_ITEMS, type SettingsItemId } from "@/features/settings/settings-data";
 import { formatDate } from "@/i18n/format";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/shared/ui/badge";
@@ -20,6 +22,7 @@ export function AccountMenu() {
   const { t, locale } = useI18n();
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"account" | SettingsItemId>("account");
   const [signingOut, setSigningOut] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
   const queryClient = useQueryClient();
@@ -29,6 +32,14 @@ export function AccountMenu() {
   }
 
   const initial = Array.from(user.displayName.trim())[0] ?? user.email.slice(0, 1);
+  const detail = view === "account" ? null : SETTINGS_ITEMS.find((item) => item.id === view);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setView("account");
+    }
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -55,7 +66,7 @@ export function AccountMenu() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -70,75 +81,84 @@ export function AccountMenu() {
           </span>
         </button>
       </DialogTrigger>
-      <DialogContent title={t("account.title")} description={user.email}>
-        <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#7e9a2c] text-xl font-semibold text-accent-ink">
-            {initial}
-          </span>
-          <div className="flex min-w-0 flex-col gap-1">
-            <p className="text-[18px] font-semibold text-ink">{user.displayName}</p>
-            <p className="small truncate text-ink-muted">{user.email}</p>
-            <Badge tone={user.role === "ADMIN" ? "warning" : "neutral"}>
-              {user.role === "ADMIN" ? t("account.roleAdmin") : t("account.roleUser")}
-            </Badge>
-          </div>
-        </div>
-        <dl className="mt-6 flex flex-col gap-3 border-t border-line pt-5 text-[13px]">
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-ink-muted">{t("account.joinedLabel")}</dt>
-            <dd className="mono text-ink-secondary">{formatDate(user.createdAt, locale)}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-ink-muted">{t("account.languageLabel")}</dt>
-            <dd>
-              <LocaleSwitcher />
-            </dd>
-          </div>
-        </dl>
-        <p className="mt-3 text-[12px] leading-[18px] text-ink-muted">
-          {t("account.languageHint")}
-        </p>
-        <p className="mt-4 flex items-center gap-2 text-[12px] text-ink-muted">
-          <BrandMark className="h-4 w-4 shrink-0 text-accent" />
-          {t("account.scope")}
-        </p>
-        <Link
-          href="/settings"
-          onClick={() => setOpen(false)}
-          className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-line bg-surface/60 px-4 py-3 text-[13px] font-medium text-ink-secondary transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <span className="flex items-center gap-2">
-            <Settings2 aria-hidden className="h-4 w-4" />
-            {t("settings.title")}
-          </span>
-          <ChevronRight aria-hidden className="h-4 w-4 text-ink-muted" />
-        </Link>
-        <div className="mt-5 border-t border-line pt-5">
-          <Button
-            variant="ghost"
-            leadingIcon={<LogOut aria-hidden className="h-4 w-4" />}
-            loading={signingOut}
-            disabled={signingOutAll}
-            onClick={handleSignOut}
-            className="w-full justify-start text-danger hover:bg-danger-soft hover:text-danger"
+      {detail ? (
+        <DialogContent title={t(detail.title)} description={t(detail.body)}>
+          <button
+            type="button"
+            onClick={() => setView("account")}
+            className="mb-4 flex items-center gap-1.5 text-[13px] text-ink-secondary transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            {t("account.signOut")}
-          </Button>
-          <Button
-            variant="ghost"
-            leadingIcon={<ShieldOff aria-hidden className="h-4 w-4" />}
-            loading={signingOutAll}
-            disabled={signingOut}
-            onClick={handleSignOutAll}
-            className="mt-2 w-full justify-start text-ink-muted hover:bg-surface-hover hover:text-ink"
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
+            {t("settings.backToAccount")}
+          </button>
+          <SettingsDetail id={detail.id} />
+        </DialogContent>
+      ) : (
+        <DialogContent title={t("account.title")} description={user.email}>
+          <div className="flex items-center gap-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#7e9a2c] text-xl font-semibold text-accent-ink">
+              {initial}
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-[18px] font-semibold text-ink">{user.displayName}</p>
+              <p className="small truncate text-ink-muted">{user.email}</p>
+              <Badge tone={user.role === "ADMIN" ? "warning" : "neutral"}>
+                {user.role === "ADMIN" ? t("account.roleAdmin") : t("account.roleUser")}
+              </Badge>
+            </div>
+          </div>
+          <dl className="mt-5 flex flex-col gap-2.5 border-t border-line pt-4 text-[13px]">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-ink-muted">{t("account.joinedLabel")}</dt>
+              <dd className="mono text-ink-secondary">{formatDate(user.createdAt, locale)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-ink-muted">{t("account.languageLabel")}</dt>
+              <dd>
+                <LocaleSwitcher />
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-2 text-[12px] leading-[18px] text-ink-muted">
+            {t("account.languageHint")}
+          </p>
+          <p className="mt-3 flex items-center gap-2 text-[12px] text-ink-muted">
+            <BrandMark className="h-4 w-4 shrink-0 text-accent" />
+            {t("account.scope")}
+          </p>
+          <section
+            aria-label={t("settings.listLabel")}
+            className="mt-3 rounded-2xl border border-line bg-surface/50 p-1.5"
           >
-            {t("account.signOutAll")}
-          </Button>
-        </div>
-        <p className="mt-4 text-center text-[11px] leading-4 text-ink-muted">
-          {t("account.demoNote")}
-        </p>
-      </DialogContent>
+            <SettingsList onSelect={setView} />
+          </section>
+          <div className="mt-4 border-t border-line pt-4">
+            <Button
+              variant="ghost"
+              leadingIcon={<LogOut aria-hidden className="h-4 w-4" />}
+              loading={signingOut}
+              disabled={signingOutAll}
+              onClick={handleSignOut}
+              className="w-full justify-start text-danger hover:bg-danger-soft hover:text-danger"
+            >
+              {t("account.signOut")}
+            </Button>
+            <Button
+              variant="ghost"
+              leadingIcon={<ShieldOff aria-hidden className="h-4 w-4" />}
+              loading={signingOutAll}
+              disabled={signingOut}
+              onClick={handleSignOutAll}
+              className="mt-2 w-full justify-start text-ink-muted hover:bg-surface-hover hover:text-ink"
+            >
+              {t("account.signOutAll")}
+            </Button>
+          </div>
+          <p className="mt-4 text-center text-[11px] leading-4 text-ink-muted">
+            {t("account.demoNote")}
+          </p>
+        </DialogContent>
+      )}
     </Dialog>
   );
 }

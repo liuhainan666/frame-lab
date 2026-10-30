@@ -112,10 +112,8 @@ export const zhCN = {
     demoNote: "演示环境账号，数据保存在当前部署的 MySQL 中。"
   },
   settings: {
-    eyebrow: "ACCOUNT / SETTINGS",
-    title: "个人设置",
-    description: "账号、账单与服务说明。演示环境不接入真实支付。",
     listLabel: "设置项目",
+    backToAccount: "返回账号",
     billing: "账单管理",
     terms: "服务条款",
     privacy: "隐私政策",
