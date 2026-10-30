@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.framelab.simulation.SimulationMapper">
+
+    <resultMap id="simulationMap" type="com.framelab.simulation.SimulationRow">
+        <result column="material_check_delay_ms" property="materialCheckDelayMs"/>
+        <result column="generate_delay_ms" property="generateDelayMs"/>
+        <result column="finalize_delay_ms" property="finalizeDelayMs"/>
+        <result column="fail_stage" property="failStage"/>
+        <result column="fail_times" property="failTimes"/>
+        <result column="fail_retryable" property="failRetryable"/>
+        <result column="updated_by" property="updatedBy"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="simulationColumns">
+        material_check_delay_ms, generate_delay_ms, finalize_delay_ms,
+        fail_stage, fail_times, fail_retryable, updated_by, updated_at
+    </sql>
+
+    <select id="find" resultMap="simulationMap">
+        SELECT <include refid="simulationColumns"/>
+          FROM simulation_setting
+         WHERE id = 1
+    </select>
+
+    <select id="lock" resultMap="simulationMap">
+        SELECT <include refid="simulationColumns"/>
+          FROM simulation_setting
+         WHERE id = 1
+         FOR UPDATE
+    </select>
+
+    <update id="consume">
+        UPDATE simulation_setting
+           SET fail_times = fail_times - 1,
+               fail_stage = CASE WHEN #{clearRemaining} THEN NULL ELSE fail_stage END,
+               fail_retryable = CASE WHEN #{clearRemaining} THEN 0 ELSE fail_retryable END,
+               updated_at = updated_at
+         WHERE id = 1
+           AND fail_times &gt; 0
+    </update>
+
+    <update id="update">
+        UPDATE simulation_setting
+           SET material_check_delay_ms = #{materialCheckDelayMs},
+               generate_delay_ms = #{generateDelayMs},
+               finalize_delay_ms = #{finalizeDelayMs},
+               fail_stage = #{failStage,jdbcType=VARCHAR},
+               fail_times = #{failTimes},
+               fail_retryable = #{failRetryable},
+               updated_by = #{updatedBy,jdbcType=BIGINT},
+               updated_at = UTC_TIMESTAMP(3)
+         WHERE id = 1
+    </update>
+</mapper>
